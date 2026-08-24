@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { DebtPayment, Expense, Member, UserAccount } from '@/types';
 import { calculatePairwiseDebts, formatVND } from '@/lib/settlement-algorithm';
 import { generateVietQRUrl, generateTransferDescription } from '@/lib/vietqr';
+import { POPULAR_BANK_APPS, openBankingApp } from '@/lib/bank-deeplinks';
 import {
   Scale,
   ArrowRight,
@@ -358,12 +359,58 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
                 </p>
               </div>
 
-              <button
-                onClick={() => setSelectedQRDebt(null)}
-                className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-sm transition"
-              >
-                Đã hiểu &amp; Đóng
-              </button>
+              {/* Quick 1-Click Banking App Opener */}
+              <div className="mb-4 space-y-2 text-left">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1">
+                    <span>⚡</span>
+                    <span>Mở thẳng App Ngân hàng (1 chạm):</span>
+                  </span>
+                  <span className="text-[10px] text-emerald-400">Tự động chép STK</span>
+                </div>
+
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 max-h-36 overflow-y-auto pr-1">
+                  {POPULAR_BANK_APPS.map((app) => (
+                    <button
+                      key={app.id}
+                      type="button"
+                      onClick={() => {
+                        if (toMember?.accountNumber) {
+                          navigator.clipboard.writeText(toMember.accountNumber);
+                        }
+                        openBankingApp(app);
+                      }}
+                      className="p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 flex flex-col items-center justify-center gap-0.5 text-[10px] font-bold text-slate-200 transition active:scale-95 group"
+                    >
+                      <span className="text-base">{app.icon}</span>
+                      <span className="truncate max-w-[70px] group-hover:text-emerald-400">
+                        {app.shortName}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                {qrUrl && (
+                  <a
+                    href={qrUrl}
+                    download={`VietQR_${toMember?.name || 'ChuyenTien'}.png`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center gap-1 transition"
+                  >
+                    <span>Lưu ảnh QR</span>
+                  </a>
+                )}
+
+                <button
+                  onClick={() => setSelectedQRDebt(null)}
+                  className="py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-bold text-xs transition"
+                >
+                  Đã chuyển &amp; Đóng
+                </button>
+              </div>
             </div>
           </div>
         );
