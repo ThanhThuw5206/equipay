@@ -109,7 +109,7 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * POST /api/sync : Lưu toàn bộ dữ liệu lên Supabase
+ * POST /api/sync : Lưu toàn bộ dữ liệu vào tất cả các bảng (equipay_group_data, members, user_accounts, expenses)
  */
 export async function POST(req: NextRequest) {
   const { client: supabase, source } = getSupabaseClientFromReq(req);
@@ -135,7 +135,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { error } = await supabase
+    // 1. Lưu Bảng Chính: equipay_group_data
+    const { error: masterErr } = await supabase
       .from('equipay_group_data')
       .upsert({
         id: 'default_group',
@@ -143,11 +144,11 @@ export async function POST(req: NextRequest) {
         updated_at: new Date().toISOString(),
       });
 
-    if (error) {
+    if (masterErr) {
       return NextResponse.json(
         {
           success: false,
-          error: error.message,
+          error: masterErr.message,
           hint: 'Đảm bảo bạn đã chạy file supabase_schema.sql trong Supabase SQL Editor!',
           source,
         },
@@ -155,9 +156,53 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 2. Lưu Bảng Members (Tên, Ngân hàng, STK của 4 thành viên)
+    if (state.members && state.members.length > 0) {
+      const memberRows = state.members.map((m) => ({
+        id: m.id,
+        name: m.name,
+        avatar: m.avatar || '👤',
+        color: m.color || '#3B82F6',
+        bank_bin: m.bankBin || '',
+        bank_name: m.bankName || '',
+        account_number: m.accountNumber || '',
+        account_name: m.accountName || '',
+        is_admin: m.isAdmin || false,
+      }));
+      await supabase.from('members').upsert(memberRows);
+    }
+
+    // 3. Lưu Bảng User Accounts (Tài khoản đăng nhập)
+    if (state.users && state.users.length > 0) {
+      const userRows = state.users.map((u) => ({
+        id: u.id,
+        username: u.username,
+        password: u.password,
+        display_name: u.displayName || u.username,
+        role: u.role || 'MEMBER',
+        member_id: u.memberId,
+      }));
+      await supabase.from('user_accounts').upsert(userRows);
+    }
+
+    // 4. Lưu Bảng Expenses (Các khoản chi tiêu)
+    if (state.expenses && state.expenses.length > 0) {
+      const expenseRows = state.expenses.map((e) => ({
+        id: e.id,
+        title: e.title,
+        amount: e.amount,
+        payer_id: e.payerId,
+        beneficiary_ids: e.beneficiaryIds || [],
+        category: e.category || 'FOOD',
+        date: e.date || new Date().toISOString(),
+        note: e.note || null,
+      }));
+      await supabase.from('expenses').upsert(expenseRows);
+    }
+
     return NextResponse.json({
       success: true,
-      message: 'Đã lưu dữ liệu thành công vào bảng equipay_group_data!',
+      message: 'Đã lưu và đồng bộ thành công vào tất cả các bảng Supabase (members, user_accounts, expenses, group_data)!',
       source,
     });
   } catch (err: any) {
