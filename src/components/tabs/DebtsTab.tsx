@@ -17,6 +17,7 @@ import {
   Building,
   Copy,
   Check,
+  Download,
   X,
 } from 'lucide-react';
 
@@ -297,91 +298,92 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
           : '';
 
         return (
-          <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-fadeIn overflow-y-auto">
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-3xl w-full max-h-[92vh] flex flex-col shadow-2xl text-slate-100 text-center relative my-auto overflow-hidden">
+          <div className="fixed inset-0 z-60 overflow-y-auto bg-black/85 backdrop-blur-md p-3 sm:p-6 flex flex-col items-center justify-center animate-fadeIn">
+            <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl text-slate-100 flex flex-col overflow-hidden my-auto">
               {/* Modal Header */}
-              <div className="p-4 sm:px-6 border-b border-slate-800 flex items-center justify-between shrink-0 bg-slate-900/90 backdrop-blur-sm">
+              <div className="px-5 py-3 border-b border-slate-800 flex items-center justify-between shrink-0 bg-slate-900/90 backdrop-blur-sm">
                 <div className="text-left">
-                  <div className="flex items-center gap-1.5 text-xs text-emerald-400 font-bold">
+                  <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-bold">
                     <span>⚡ VietQR Napas 247</span>
-                    <span className="text-slate-500">•</span>
-                    <span className="text-slate-400 font-normal">Chuyển khoản tức thì 24/7</span>
+                    <span className="text-slate-600">•</span>
+                    <span className="text-slate-400 font-normal text-[10.5px]">Chuyển khoản tức thì</span>
                   </div>
-                  <h3 className="font-bold text-base sm:text-lg text-slate-100 mt-0.5">
+                  <h3 className="font-bold text-sm sm:text-base text-slate-100 mt-0.5">
                     {fromMember?.name} ➔ Trả {toMember?.name}
                   </h3>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <span className="text-xs text-slate-400 block">Số tiền:</span>
-                    <span className="text-base sm:text-xl font-black text-emerald-400 font-mono">
+                    <span className="text-[10px] text-slate-400 block">Số tiền:</span>
+                    <span className="text-sm sm:text-base font-black text-emerald-400 font-mono">
                       {formatVND(selectedQRDebt.amount)}
                     </span>
                   </div>
                   <button
                     onClick={() => setSelectedQRDebt(null)}
-                    className="p-2 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition ml-2"
+                    className="p-1.5 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition ml-1"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
               </div>
 
-              {/* Responsive 2-Column Content Body */}
-              <div className="overflow-y-auto p-4 sm:p-6 flex-1 touch-pan-y">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
+              {/* 2-Column Content Body */}
+              <div className="p-4 sm:p-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
                   {/* Left Column: QR Code & Download */}
-                  <div className="flex flex-col items-center justify-center p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-3">
-                    <div className="p-2 bg-white rounded-2xl shadow-md inline-block max-w-full">
+                  <div className="flex flex-col items-center justify-center p-3 bg-slate-950 rounded-2xl border border-slate-800 space-y-2.5">
+                    <div className="p-2 bg-white rounded-xl shadow-md inline-block max-w-full">
                       {qrUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={qrUrl}
                           alt={`VietQR ${toMember?.name}`}
-                          className="w-52 sm:w-60 h-auto mx-auto rounded-lg"
+                          className="w-40 sm:w-44 h-auto mx-auto rounded-md"
                         />
                       ) : (
-                        <div className="p-8 text-slate-800 text-xs">
+                        <div className="p-6 text-slate-800 text-xs">
                           Chưa có thông tin số tài khoản
                         </div>
                       )}
                     </div>
 
                     {qrUrl && (
-                  <a
-                    href={qrUrl}
-                    download={`VietQR_${toMember?.name || 'ChuyenTien'}.png`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 shadow-md transition active:scale-98"
-                  >
-                    <span>Lưu ảnh QR vào máy</span>
-                  </a>
+                      <a
+                        href={qrUrl}
+                        download={`VietQR_${toMember?.name || 'ChuyenTien'}.png`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow transition active:scale-98"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Lưu ảnh QR vào máy</span>
+                      </a>
                     )}
                   </div>
 
                   {/* Right Column: Bank Details, Copy & Bank Apps */}
-                  <div className="space-y-3 text-left">
+                  <div className="space-y-2.5 text-left">
                     {/* Bank Details Card with Copy */}
-                    <div className="text-xs bg-slate-950 rounded-2xl p-4 border border-slate-800 space-y-2.5">
+                    <div className="text-xs bg-slate-950 rounded-2xl p-3 border border-slate-800 space-y-2">
                       <div className="flex justify-between items-center text-slate-400">
                         <span>Người nhận:</span>
-                        <strong className="text-emerald-300 font-bold text-sm">{toMember?.name}</strong>
+                        <strong className="text-emerald-300 font-bold">{toMember?.name}</strong>
                       </div>
                       <div className="flex justify-between items-center text-slate-400">
                         <span>Ngân hàng:</span>
                         <strong className="text-slate-200">{toMember?.bankName}</strong>
                       </div>
                       <div className="flex justify-between items-center text-slate-400">
-                        <span>Số tài khoản (STK):</span>
-                        <div className="flex items-center gap-2">
-                          <strong className="text-emerald-400 font-mono text-sm">{toMember?.accountNumber || 'Chưa điền'}</strong>
+                        <span>STK:</span>
+                        <div className="flex items-center gap-1.5">
+                          <strong className="text-emerald-400 font-mono text-xs">{toMember?.accountNumber || 'Chưa điền'}</strong>
                           {toMember?.accountNumber && (
                             <button
                               onClick={() => {
                                 navigator.clipboard.writeText(toMember.accountNumber);
                               }}
-                              className="text-[11px] text-blue-400 hover:underline px-2 py-0.5 bg-blue-500/15 rounded-md font-semibold"
+                              className="text-[10px] text-blue-400 hover:underline px-1.5 py-0.5 bg-blue-500/15 rounded"
                             >
                               Chép STK
                             </button>
@@ -389,28 +391,28 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
                         </div>
                       </div>
                       <div className="flex justify-between items-center text-slate-400">
-                        <span>Số tiền chuyển:</span>
-                        <div className="flex items-center gap-2">
-                          <strong className="text-emerald-400 font-mono text-sm">{formatVND(selectedQRDebt.amount)}</strong>
+                        <span>Số tiền:</span>
+                        <div className="flex items-center gap-1.5">
+                          <strong className="text-emerald-400 font-mono text-xs">{formatVND(selectedQRDebt.amount)}</strong>
                           <button
                             onClick={() => {
                               navigator.clipboard.writeText(selectedQRDebt.amount.toString());
                             }}
-                            className="text-[11px] text-teal-400 hover:underline px-2 py-0.5 bg-teal-500/15 rounded-md font-semibold"
+                            className="text-[10px] text-teal-400 hover:underline px-1.5 py-0.5 bg-teal-500/15 rounded"
                           >
                             Chép tiền
                           </button>
                         </div>
                       </div>
                       <div className="flex justify-between items-center text-slate-400">
-                        <span>Nội dung CK:</span>
-                        <div className="flex items-center gap-2">
-                          <strong className="text-slate-200 font-mono text-xs truncate max-w-[150px]">{desc}</strong>
+                        <span>Nội dung:</span>
+                        <div className="flex items-center gap-1.5">
+                          <strong className="text-slate-200 font-mono text-[11px] truncate max-w-[130px]">{desc}</strong>
                           <button
                             onClick={() => {
                               navigator.clipboard.writeText(desc);
                             }}
-                            className="text-[11px] text-purple-400 hover:underline px-2 py-0.5 bg-purple-500/15 rounded-md font-semibold"
+                            className="text-[10px] text-purple-400 hover:underline px-1.5 py-0.5 bg-purple-500/15 rounded"
                           >
                             Chép ND
                           </button>
@@ -419,16 +421,16 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
                     </div>
 
                     {/* Quick 1-Click Banking App Opener */}
-                    <div className="space-y-1.5 text-left bg-slate-950 p-3.5 rounded-2xl border border-slate-800">
+                    <div className="space-y-1 text-left bg-slate-950 p-2.5 rounded-2xl border border-slate-800">
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1">
+                        <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1">
                           <span>📱</span>
                           <span>Mở App Ngân hàng (1 chạm):</span>
                         </span>
-                        <span className="text-[10px] text-slate-400">Tự chép STK</span>
+                        <span className="text-[9px] text-slate-400">Tự chép STK</span>
                       </div>
 
-                      <div className="grid grid-cols-4 sm:grid-cols-5 gap-1.5 pt-1">
+                      <div className="grid grid-cols-5 gap-1 pt-0.5">
                         {POPULAR_BANK_APPS.map((app) => (
                           <button
                             key={app.id}
@@ -439,10 +441,10 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
                               }
                               openBankingApp(app);
                             }}
-                            className="p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/50 hover:bg-slate-850 flex flex-col items-center justify-center gap-0.5 text-[10px] font-bold text-slate-200 transition active:scale-95 group shadow-sm"
+                            className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-emerald-500/50 flex flex-col items-center justify-center gap-0.5 text-[9px] font-bold text-slate-200 transition active:scale-95 group"
                           >
-                            <span className="text-base">{app.icon}</span>
-                            <span className="truncate max-w-[60px] group-hover:text-emerald-400 text-[9.5px]">
+                            <span className="text-xs">{app.icon}</span>
+                            <span className="truncate max-w-[50px] group-hover:text-emerald-400 text-[8.5px]">
                               {app.shortName}
                             </span>
                           </button>
@@ -451,26 +453,20 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
                     </div>
 
                     {/* Auto Pay Tip Box */}
-                    <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-left text-xs space-y-1 text-emerald-300">
-                      <p className="font-bold flex items-center gap-1">
-                        <span>💡</span>
-                        <span>Mẹo tự động điền 100% (Không cần gõ):</span>
-                      </p>
-                      <p className="text-[11px] text-slate-300">
-                        Bấm <strong>&quot;Lưu ảnh QR vào máy&quot;</strong> ➔ Mở App Ngân Hàng ➔ Bấm <strong>&quot;Quét QR&quot;</strong> ➔ Chọn ảnh từ <strong>Thư viện</strong>.
-                      </p>
+                    <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-left text-[11px] text-emerald-300">
+                      <span>💡 <strong>Tự động điền 100%:</strong> Bấm &quot;Lưu ảnh QR&quot; ➔ Mở App Ngân Hàng ➔ Bấm &quot;Quét QR&quot; ➔ Chọn ảnh từ Thư viện.</span>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Modal Footer Actions */}
-              <div className="p-3.5 sm:px-6 border-t border-slate-800 bg-slate-900 shrink-0 flex justify-end">
+              <div className="px-5 py-2.5 border-t border-slate-800 bg-slate-900 shrink-0 flex justify-end">
                 <button
                   onClick={() => setSelectedQRDebt(null)}
-                  className="py-2.5 px-6 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs sm:text-sm transition"
+                  className="py-1.5 px-5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition"
                 >
-                  Đã hiểu &amp; Đóng
+                  Đóng
                 </button>
               </div>
             </div>
