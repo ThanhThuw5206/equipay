@@ -182,10 +182,19 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               onClick={onOpenMembers}
               className="flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition"
-              title="Quản lý thông tin 4 thành viên & Ngân hàng"
+              title={isAdmin ? 'Quản lý thông tin 4 thành viên & Ngân hàng' : 'Thông tin tài khoản & Ngân hàng của tôi'}
             >
-              <Users className="w-3.5 h-3.5 text-blue-400" />
-              <span className="hidden sm:inline">4 Thành viên</span>
+              {isAdmin ? (
+                <>
+                  <Users className="w-3.5 h-3.5 text-blue-400" />
+                  <span className="hidden sm:inline">4 Thành viên</span>
+                </>
+              ) : (
+                <>
+                  <User className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="hidden sm:inline">Hồ sơ của tôi</span>
+                </>
+              )}
             </button>
 
             {/* Settlement History */}
@@ -207,14 +216,16 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Database className="w-4 h-4 text-teal-400" />
             </button>
 
-            {/* Reset */}
-            <button
-              onClick={onResetDemo}
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 hover:text-rose-400 transition"
-              title="Khôi phục trạng thái ban đầu"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-            </button>
+            {/* Reset - Chỉ Admin mới có quyền khôi phục */}
+            {isAdmin && (
+              <button
+                onClick={onResetDemo}
+                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 hover:text-rose-400 transition"
+                title="Khôi phục trạng thái ban đầu"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
       </header>

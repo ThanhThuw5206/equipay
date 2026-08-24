@@ -146,7 +146,12 @@ export default function Home() {
   };
 
   const handleEditMemberClick = (member: Member) => {
-    setSelectedMemberForEdit(member.id);
+    if (!isAdmin && currentUser?.memberId && member.id !== currentUser.memberId) {
+      showToast('🔒 Bạn chỉ có quyền chỉnh sửa thông tin của chính mình!');
+      setSelectedMemberForEdit(currentUser.memberId);
+    } else {
+      setSelectedMemberForEdit(member.id);
+    }
     setIsMembersOpen(true);
   };
 
@@ -324,6 +329,7 @@ export default function Home() {
         onSaveMembers={handleSaveMembers}
         adminPin={state.adminPin}
         selectedMemberId={selectedMemberForEdit}
+        currentUser={currentUser}
       />
 
       <HistoryModal
