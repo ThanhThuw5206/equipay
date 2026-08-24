@@ -372,8 +372,8 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
                   </div>
                 </div>
 
-                {/* Bank Summary Details */}
-                <div className="text-xs bg-slate-950 rounded-2xl p-3 border border-slate-800 text-left space-y-1.5">
+                {/* Bank Summary Details with 1-Click Copy */}
+                <div className="text-xs bg-slate-950 rounded-2xl p-3 border border-slate-800 text-left space-y-2">
                   <div className="flex justify-between items-center text-slate-400">
                     <span>Người nhận:</span>
                     <strong className="text-emerald-300 font-bold">{toMember?.name}</strong>
@@ -388,22 +388,61 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
                       <strong className="text-emerald-400 font-mono text-sm">{toMember?.accountNumber || 'Chưa điền'}</strong>
                       {toMember?.accountNumber && (
                         <button
-                          onClick={() => handleCopySTK('qr_modal', toMember.accountNumber)}
+                          onClick={() => {
+                            navigator.clipboard.writeText(toMember.accountNumber);
+                          }}
                           className="text-[10px] text-blue-400 hover:underline px-1.5 py-0.5 bg-blue-500/10 rounded"
                         >
-                          Chép
+                          Chép STK
                         </button>
                       )}
                     </div>
                   </div>
                   <div className="flex justify-between items-center text-slate-400">
-                    <span>Chủ tài khoản:</span>
-                    <strong className="text-slate-200 uppercase">{toMember?.accountName || 'N/A'}</strong>
+                    <span>Số tiền cần trả:</span>
+                    <div className="flex items-center gap-1.5">
+                      <strong className="text-emerald-400 font-mono text-xs">{formatVND(selectedQRDebt.amount)}</strong>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(selectedQRDebt.amount.toString());
+                        }}
+                        className="text-[10px] text-teal-400 hover:underline px-1.5 py-0.5 bg-teal-500/10 rounded"
+                      >
+                        Chép tiền
+                      </button>
+                    </div>
                   </div>
                   <div className="flex justify-between items-center text-slate-400">
                     <span>Nội dung CK:</span>
-                    <strong className="text-slate-200 font-mono text-[11px] truncate max-w-[180px]">{desc}</strong>
+                    <div className="flex items-center gap-1.5">
+                      <strong className="text-slate-200 font-mono text-[11px] truncate max-w-[140px]">{desc}</strong>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(desc);
+                        }}
+                        className="text-[10px] text-purple-400 hover:underline px-1.5 py-0.5 bg-purple-500/10 rounded"
+                      >
+                        Chép ND
+                      </button>
+                    </div>
                   </div>
+                </div>
+
+                {/* Auto Pay Tip Box */}
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-left text-[11px] space-y-1 text-emerald-300">
+                  <p className="font-bold flex items-center gap-1">
+                    <span>💡</span>
+                    <span>Cách tự động điền 100% (Không cần gõ gì):</span>
+                  </p>
+                  <p className="text-[10.5px] text-slate-300">
+                    1. Bấm nút <strong>&quot;Lưu ảnh QR vào máy&quot;</strong> bên dưới.
+                  </p>
+                  <p className="text-[10.5px] text-slate-300">
+                    2. Mở App Ngân Hàng ➔ Bấm <strong>&quot;Quét QR&quot;</strong> ➔ Chọn ảnh từ <strong>Thư viện</strong>.
+                  </p>
+                  <p className="text-[10px] text-emerald-400 font-medium italic">
+                    (App ngân hàng sẽ tự động điền đúng STK, Số tiền và Nội dung ngay lập tức!)
+                  </p>
                 </div>
               </div>
 
@@ -415,17 +454,17 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
                     download={`VietQR_${toMember?.name || 'ChuyenTien'}.png`}
                     target="_blank"
                     rel="noreferrer"
-                    className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center gap-1 transition"
+                    className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow transition"
                   >
-                    <span>Lưu ảnh QR</span>
+                    <span>Lưu ảnh QR vào máy</span>
                   </a>
                 )}
 
                 <button
                   onClick={() => setSelectedQRDebt(null)}
-                  className="py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-bold text-xs transition"
+                  className="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition"
                 >
-                  Đã chuyển &amp; Đóng
+                  Đã hiểu &amp; Đóng
                 </button>
               </div>
             </div>
