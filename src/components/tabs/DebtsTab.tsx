@@ -297,101 +297,118 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
           : '';
 
         return (
-          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-5 shadow-2xl text-slate-100 text-center relative">
-              <button
-                onClick={() => setSelectedQRDebt(null)}
-                className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition"
-              >
-                <X className="w-5 h-5" />
-              </button>
-
-              <div className="flex items-center justify-center gap-1 text-xs text-emerald-400 font-bold mb-1">
-                <span>Quét mã VietQR Napas 247</span>
-              </div>
-              <h3 className="font-bold text-base text-slate-100">
-                {fromMember?.name} ➔ Trả {toMember?.name}
-              </h3>
-              <p className="text-xl font-black text-emerald-400 mt-1 font-mono">
-                {formatVND(selectedQRDebt.amount)}
-              </p>
-
-              <div className="my-4 p-2 bg-white rounded-2xl shadow-inner inline-block max-w-full">
-                {qrUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={qrUrl}
-                    alt={`VietQR ${toMember?.name}`}
-                    className="w-64 h-auto mx-auto rounded-lg"
-                  />
-                ) : (
-                  <div className="p-8 text-slate-800 text-xs">
-                    Chưa có thông tin số tài khoản
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-2.5 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn overflow-y-auto">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full max-h-[92vh] flex flex-col shadow-2xl text-slate-100 text-center relative my-auto overflow-hidden">
+              {/* Modal Header */}
+              <div className="p-4 border-b border-slate-800 flex items-center justify-between shrink-0 bg-slate-900/90 backdrop-blur-sm">
+                <div className="text-left">
+                  <div className="flex items-center gap-1 text-[11px] text-emerald-400 font-bold">
+                    <span>⚡ VietQR Napas 247</span>
                   </div>
-                )}
+                  <h3 className="font-bold text-sm sm:text-base text-slate-100">
+                    {fromMember?.name} ➔ Trả {toMember?.name}
+                  </h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm sm:text-base font-black text-emerald-400 font-mono">
+                    {formatVND(selectedQRDebt.amount)}
+                  </span>
+                  <button
+                    onClick={() => setSelectedQRDebt(null)}
+                    className="p-1.5 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
 
-              <div className="text-xs bg-slate-950 rounded-xl p-3 border border-slate-800 text-left space-y-1 mb-4">
-                <p className="text-slate-400">
-                  Người nhận: <strong className="text-emerald-300 font-bold">{toMember?.name}</strong>
-                </p>
-                <p className="text-slate-400">
-                  Ngân hàng: <strong className="text-slate-200">{toMember?.bankName}</strong>
-                </p>
-                <p className="text-slate-400 flex items-center justify-between">
-                  <span>
-                    STK: <strong className="text-emerald-400 font-mono text-sm">{toMember?.accountNumber || 'Chưa điền'}</strong>
-                  </span>
-                  {toMember?.accountNumber && (
-                    <button
-                      onClick={() => handleCopySTK('qr_modal', toMember.accountNumber)}
-                      className="text-[10px] text-blue-400 hover:underline"
-                    >
-                      Sao chép
-                    </button>
+              {/* Scrollable Content Body */}
+              <div className="overflow-y-auto p-4 space-y-3.5 flex-1 touch-pan-y">
+                {/* VietQR Image */}
+                <div className="p-2 bg-white rounded-2xl shadow-inner inline-block max-w-full mx-auto">
+                  {qrUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={qrUrl}
+                      alt={`VietQR ${toMember?.name}`}
+                      className="w-48 sm:w-56 h-auto mx-auto rounded-lg"
+                    />
+                  ) : (
+                    <div className="p-6 text-slate-800 text-xs">
+                      Chưa có thông tin số tài khoản
+                    </div>
                   )}
-                </p>
-                <p className="text-slate-400">
-                  Chủ TK: <strong className="text-slate-200 uppercase">{toMember?.accountName || 'N/A'}</strong>
-                </p>
-                <p className="text-slate-400 truncate">
-                  Nội dung: <strong className="text-slate-200">{desc}</strong>
-                </p>
-              </div>
-
-              {/* Quick 1-Click Banking App Opener */}
-              <div className="mb-4 space-y-2 text-left">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1">
-                    <span>⚡</span>
-                    <span>Mở thẳng App Ngân hàng (1 chạm):</span>
-                  </span>
-                  <span className="text-[10px] text-emerald-400">Tự động chép STK</span>
                 </div>
 
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 max-h-36 overflow-y-auto pr-1">
-                  {POPULAR_BANK_APPS.map((app) => (
-                    <button
-                      key={app.id}
-                      type="button"
-                      onClick={() => {
-                        if (toMember?.accountNumber) {
-                          navigator.clipboard.writeText(toMember.accountNumber);
-                        }
-                        openBankingApp(app);
-                      }}
-                      className="p-2 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 flex flex-col items-center justify-center gap-0.5 text-[10px] font-bold text-slate-200 transition active:scale-95 group"
-                    >
-                      <span className="text-base">{app.icon}</span>
-                      <span className="truncate max-w-[70px] group-hover:text-emerald-400">
-                        {app.shortName}
-                      </span>
-                    </button>
-                  ))}
+                {/* Quick 1-Click Banking App Opener */}
+                <div className="space-y-1.5 text-left bg-slate-950 p-3 rounded-2xl border border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1">
+                      <span>📱</span>
+                      <span>Mở thẳng App Ngân hàng (1 chạm):</span>
+                    </span>
+                    <span className="text-[10px] text-slate-400">Tự chép STK</span>
+                  </div>
+
+                  <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 pt-1">
+                    {POPULAR_BANK_APPS.map((app) => (
+                      <button
+                        key={app.id}
+                        type="button"
+                        onClick={() => {
+                          if (toMember?.accountNumber) {
+                            navigator.clipboard.writeText(toMember.accountNumber);
+                          }
+                          openBankingApp(app);
+                        }}
+                        className="p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/50 hover:bg-slate-850 flex flex-col items-center justify-center gap-0.5 text-[10px] font-bold text-slate-200 transition active:scale-95 group shadow-sm"
+                      >
+                        <span className="text-base">{app.icon}</span>
+                        <span className="truncate max-w-[65px] group-hover:text-emerald-400 text-[10px]">
+                          {app.shortName}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Bank Summary Details */}
+                <div className="text-xs bg-slate-950 rounded-2xl p-3 border border-slate-800 text-left space-y-1.5">
+                  <div className="flex justify-between items-center text-slate-400">
+                    <span>Người nhận:</span>
+                    <strong className="text-emerald-300 font-bold">{toMember?.name}</strong>
+                  </div>
+                  <div className="flex justify-between items-center text-slate-400">
+                    <span>Ngân hàng:</span>
+                    <strong className="text-slate-200">{toMember?.bankName}</strong>
+                  </div>
+                  <div className="flex justify-between items-center text-slate-400">
+                    <span>Số tài khoản (STK):</span>
+                    <div className="flex items-center gap-1.5">
+                      <strong className="text-emerald-400 font-mono text-sm">{toMember?.accountNumber || 'Chưa điền'}</strong>
+                      {toMember?.accountNumber && (
+                        <button
+                          onClick={() => handleCopySTK('qr_modal', toMember.accountNumber)}
+                          className="text-[10px] text-blue-400 hover:underline px-1.5 py-0.5 bg-blue-500/10 rounded"
+                        >
+                          Chép
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center text-slate-400">
+                    <span>Chủ tài khoản:</span>
+                    <strong className="text-slate-200 uppercase">{toMember?.accountName || 'N/A'}</strong>
+                  </div>
+                  <div className="flex justify-between items-center text-slate-400">
+                    <span>Nội dung CK:</span>
+                    <strong className="text-slate-200 font-mono text-[11px] truncate max-w-[180px]">{desc}</strong>
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              {/* Modal Footer Actions */}
+              <div className="p-3 border-t border-slate-800 bg-slate-900 shrink-0 grid grid-cols-2 gap-2">
                 {qrUrl && (
                   <a
                     href={qrUrl}
