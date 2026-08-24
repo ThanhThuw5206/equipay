@@ -80,13 +80,29 @@ export function getSupabaseClient(): SupabaseClient | null {
 
 /**
  * Tải dữ liệu mới nhất từ Supabase Cloud Database về web
+ * (Ưu tiên gọi qua Server API Route /api/sync để tự động nhận biến Vercel Integration)
  */
 export async function fetchCloudState(): Promise<{ state: GroupState | null; error?: string }> {
+  // 1. Thử gọi qua Server Route /api/sync
+  if (typeof window !== 'undefined') {
+    try {
+      const res = await fetch('/api/sync', { cache: 'no-store' });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.state && json.state.members) {
+          return { state: json.state as GroupState };
+        }
+      }
+    } catch {
+      // Fallback sang Client SDK bên dưới
+    }
+  }
+
+  // 2. Client SDK Fallback
   const client = getSupabaseClient();
-  if (!client) return { state: null, error: 'Chưa cấu hình Supabase URL / Key' };
+  if (!client) return { state: null, error: 'Chưa kết nối Supabase Cloud' };
 
   try {
-    // 1. Thử lấy từ bảng equipay_group_data
     const { data, error } = await client
       .from('equipay_group_data')
       .select('state_data')
@@ -94,7 +110,7 @@ export async function fetchCloudState(): Promise<{ state: GroupState | null; err
       .maybeSingle();
 
     if (error) {
-      console.warn('Supabase fetch equipay_group_data error:', error.message);
+      console.warn('Supabase fetch error:', error.message);
       return { state: null, error: error.message };
     }
 
@@ -113,49 +129,52 @@ export async function fetchCloudState(): Promise<{ state: GroupState | null; err
  * Đẩy dữ liệu từ web lên Supabase Cloud Database để 3 người còn lại cùng thấy
  */
 export async function pushCloudState(state: GroupState): Promise<{ success: boolean; error?: string }> {
-  const client = getSupabaseClient();
-  if (!client) return { success: false, error: 'Chưa cấu hình Supabase URL / Key' };
+  let serverSuccess = false;
 
-  try {
-    // 1. Upsert vào bảng equipay_group_data
-    const { error } = await client
-      .from('equipay_group_data')
-      .upsert({
-        id: 'default_group',
-        state_data: state,
-        updated_at: new Date().toISOString(),
-      });
-
-    if (error) {
-      console.error('Supabase push error:', error.message);
-      return { success: false, error: error.message };
-    }
-
-    // 2. Đồng bộ phụ vào bảng members và expenses nếu bảng tồn tại
+  // 1. Đẩy qua Server Route /api/sync
+  if (typeof window !== 'undefined') {
     try {
-      if (state.members && state.members.length > 0) {
-        const memberRows = state.members.map((m) => ({
-          id: m.id,
-          name: m.name,
-          avatar: m.avatar,
-          color: m.color,
-          bank_bin: m.bankBin,
-          bank_name: m.bankName,
-          account_number: m.accountNumber,
-          account_name: m.accountName,
-          is_admin: m.isAdmin || false,
-        }));
-        await client.from('members').upsert(memberRows);
+      const res = await fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success) {
+          serverSuccess = true;
+        }
       }
     } catch {
-      // Bỏ qua lỗi phụ
+      // Fallback
     }
-
-    return { success: true };
-  } catch (err: any) {
-    console.error('Cloud push exception:', err);
-    return { success: false, error: err.message || String(err) };
   }
+
+  // 2. Đẩy qua Client SDK
+  const client = getSupabaseClient();
+  if (client) {
+    try {
+      const { error } = await client
+        .from('equipay_group_data')
+        .upsert({
+          id: 'default_group',
+          state_data: state,
+          updated_at: new Date().toISOString(),
+        });
+
+      if (!error) {
+        return { success: true };
+      }
+    } catch {
+      // Ignore
+    }
+  }
+
+  if (serverSuccess) {
+    return { success: true };
+  }
+
+  return { success: false, error: 'Không thể kết nối lưu trữ Supabase' };
 }
 
 /**

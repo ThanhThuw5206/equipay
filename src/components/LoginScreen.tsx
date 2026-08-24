@@ -16,15 +16,39 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
 
     const trimmedUser = username.trim().toLowerCase();
-    const foundUser = users.find(
+
+    // 1. Kiểm tra trong danh sách người dùng hiện tại
+    let foundUser = users.find(
       (u) => u.username.toLowerCase() === trimmedUser && u.password === password
     );
+
+    // 2. Nếu chưa thấy, gọi API lấy dữ liệu mới nhất từ Supabase Cloud
+    if (!foundUser) {
+      try {
+        const res = await fetch('/api/sync', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && data.state && data.state.users) {
+            foundUser = data.state.users.find(
+              (u: UserAccount) =>
+                u.username.toLowerCase() === trimmedUser && u.password === password
+            );
+          }
+        }
+      } catch {
+        // Ignore network error
+      }
+    }
+
+    setIsLoading(false);
 
     if (foundUser) {
       onLoginSuccess(foundUser);
