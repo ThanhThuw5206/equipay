@@ -1,4 +1,4 @@
-import { Bank, ExpenseCategory, Member } from '@/types';
+import { Bank, ExpenseCategory, Member, UserAccount } from '@/types';
 
 export const VIETNAM_BANKS: Bank[] = [
   { id: 'MB', code: 'MB', name: 'Ngân hàng TMCP Quân đội', shortName: 'MBBank', bin: '970422' },
@@ -27,8 +27,8 @@ export const DEFAULT_MEMBERS: Member[] = [
     id: 'mem_1',
     name: 'Thành viên 1 (Admin)',
     avatar: '👨‍💼',
-    color: '#3B82F6', // Blue
-    bankBin: '970422', // MBBank
+    color: '#3B82F6',
+    bankBin: '970422',
     bankName: 'MBBank',
     accountNumber: '',
     accountName: '',
@@ -38,8 +38,8 @@ export const DEFAULT_MEMBERS: Member[] = [
     id: 'mem_2',
     name: 'Thành viên 2',
     avatar: '🏄‍♂️',
-    color: '#10B981', // Emerald
-    bankBin: '970436', // Vietcombank
+    color: '#10B981',
+    bankBin: '970436',
     bankName: 'Vietcombank',
     accountNumber: '',
     accountName: '',
@@ -49,8 +49,8 @@ export const DEFAULT_MEMBERS: Member[] = [
     id: 'mem_3',
     name: 'Thành viên 3',
     avatar: '👩‍🎨',
-    color: '#EC4899', // Pink
-    bankBin: '970407', // Techcombank
+    color: '#EC4899',
+    bankBin: '970407',
     bankName: 'Techcombank',
     accountNumber: '',
     accountName: '',
@@ -60,14 +60,24 @@ export const DEFAULT_MEMBERS: Member[] = [
     id: 'mem_4',
     name: 'Thành viên 4',
     avatar: '🚀',
-    color: '#8B5CF6', // Purple
-    bankBin: '970432', // VPBank
+    color: '#8B5CF6',
+    bankBin: '970432',
     bankName: 'VPBank',
     accountNumber: '',
     accountName: '',
     isAdmin: false,
   },
 ];
+
+export const DEFAULT_ADMIN_USER: UserAccount = {
+  id: 'usr_admin',
+  username: 'admin',
+  password: 'admin@123',
+  displayName: 'Quản Trị Viên (Admin)',
+  role: 'ADMIN',
+  memberId: 'mem_1',
+  createdAt: new Date().toISOString(),
+};
 
 export const CATEGORIES_CONFIG: Record<
   ExpenseCategory,

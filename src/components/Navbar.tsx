@@ -1,17 +1,18 @@
 'use client';
 
 import React, { useState } from 'react';
-import { GroupState } from '@/types';
+import { GroupState, UserAccount } from '@/types';
 import {
   Users,
   History,
-  Settings,
-  Shield,
   ShieldCheck,
   RotateCcw,
-  Sparkles,
   Database,
   Lock,
+  UserCog,
+  LogIn,
+  LogOut,
+  User,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -20,6 +21,10 @@ interface NavbarProps {
   onOpenMembers: () => void;
   onOpenHistory: () => void;
   onOpenSync: () => void;
+  onOpenUserManager: () => void;
+  onOpenLogin: () => void;
+  currentUser: UserAccount | null;
+  onLogout: () => void;
   isAdminUnlocked: boolean;
   setIsAdminUnlocked: (unlocked: boolean) => void;
   onResetDemo: () => void;
@@ -31,6 +36,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenMembers,
   onOpenHistory,
   onOpenSync,
+  onOpenUserManager,
+  onOpenLogin,
+  currentUser,
+  onLogout,
   isAdminUnlocked,
   setIsAdminUnlocked,
   onResetDemo,
@@ -68,13 +77,15 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
   };
 
+  const isAdmin = currentUser?.role === 'ADMIN' || isAdminUnlocked;
+
   return (
     <>
       <header className="sticky top-0 z-30 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 text-white">
-        <div className="max-w-5xl mx-auto px-4 py-3 sm:py-4 flex items-center justify-between gap-2">
+        <div className="max-w-5xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3.5 flex items-center justify-between gap-2">
           {/* Logo & Group Name */}
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="h-10 w-10 rounded-xl overflow-hidden shadow-lg shadow-emerald-500/20 shrink-0 border border-emerald-500/30 bg-slate-900">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl overflow-hidden shadow-lg shadow-emerald-500/20 shrink-0 border border-emerald-500/30 bg-slate-900">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/logo.jpg"
@@ -93,67 +104,94 @@ export const Navbar: React.FC<NavbarProps> = ({
                     onKeyDown={(e) => e.key === 'Enter' && handleSaveTitle()}
                     onBlur={handleSaveTitle}
                     autoFocus
-                    className="bg-slate-800 border border-slate-700 text-white text-sm sm:text-base font-bold rounded px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="bg-slate-800 border border-slate-700 text-white text-xs sm:text-sm font-bold rounded px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
               ) : (
-                <div className="flex items-center gap-1.5 group cursor-pointer" onClick={() => setIsEditingTitle(true)}>
-                  <h1 className="font-bold text-sm sm:text-lg truncate text-slate-100 group-hover:text-emerald-400 transition">
+                <div
+                  className="flex items-center gap-1.5 group cursor-pointer"
+                  onClick={() => setIsEditingTitle(true)}
+                >
+                  <h1 className="font-bold text-xs sm:text-base truncate text-slate-100 group-hover:text-emerald-400 transition">
                     {state.groupName}
                   </h1>
-                  <span className="text-xs text-slate-400 hidden sm:inline">✏️</span>
+                  <span className="text-[10px] text-slate-400 hidden sm:inline">✏️</span>
                 </div>
               )}
-              <div className="flex items-center gap-2 text-xs text-slate-400">
+              <div className="flex items-center gap-2 text-[11px] text-slate-400">
                 <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                   4 Thành viên
                 </span>
                 <span>•</span>
-                <span>Chốt sổ qua VietQR</span>
+                <span>VietQR Napas 247</span>
               </div>
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            {/* Admin Unlock Badge */}
-            <button
-              onClick={handleAdminToggle}
-              title={isAdminUnlocked ? 'Đang mở quyền Admin (Bấm để khóa)' : 'Mở khóa quyền Admin (Mặc định PIN: 1234)'}
-              className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border transition ${
-                isAdminUnlocked
-                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 font-medium'
-                  : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              {isAdminUnlocked ? (
-                <>
-                  <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="hidden sm:inline">Admin ON</span>
-                </>
-              ) : (
-                <>
-                  <Shield className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Admin</span>
-                </>
-              )}
-            </button>
+          {/* Action Buttons & Auth */}
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            {/* User Account / Login Button */}
+            {currentUser ? (
+              <div className="flex items-center gap-1 bg-slate-950/80 border border-slate-800 rounded-xl p-1">
+                <div className="px-2 py-0.5 flex items-center gap-1 text-xs">
+                  {currentUser.role === 'ADMIN' ? (
+                    <span className="text-amber-400 font-bold flex items-center gap-0.5">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span className="hidden md:inline">{currentUser.displayName}</span>
+                    </span>
+                  ) : (
+                    <span className="text-blue-400 font-medium flex items-center gap-0.5">
+                      <User className="w-3.5 h-3.5" />
+                      <span className="hidden md:inline">{currentUser.displayName}</span>
+                    </span>
+                  )}
+                </div>
+
+                {/* Admin-only User Manager Button */}
+                {currentUser.role === 'ADMIN' && (
+                  <button
+                    onClick={onOpenUserManager}
+                    className="p-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 transition"
+                    title="Quản lý & Cấp tài khoản người dùng"
+                  >
+                    <UserCog className="w-3.5 h-3.5" />
+                  </button>
+                )}
+
+                {/* Logout */}
+                <button
+                  onClick={onLogout}
+                  className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-rose-400 transition"
+                  title="Đăng xuất"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={onOpenLogin}
+                className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-teal-500/30 border border-emerald-500/40 text-emerald-300 font-bold transition shadow-sm"
+              >
+                <LogIn className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Đăng nhập</span>
+              </button>
+            )}
 
             {/* Member Settings */}
             <button
               onClick={onOpenMembers}
-              className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition"
+              className="flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition"
               title="Quản lý thông tin 4 thành viên & Ngân hàng"
             >
               <Users className="w-3.5 h-3.5 text-blue-400" />
-              <span className="hidden md:inline">4 Thành viên</span>
+              <span className="hidden sm:inline">4 Thành viên</span>
             </button>
 
             {/* Settlement History */}
             <button
               onClick={onOpenHistory}
-              className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition"
+              className="flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition"
               title="Lịch sử các kỳ chốt sổ"
             >
               <History className="w-3.5 h-3.5 text-purple-400" />
@@ -169,13 +207,13 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Database className="w-4 h-4 text-teal-400" />
             </button>
 
-            {/* Reset Demo */}
+            {/* Reset */}
             <button
               onClick={onResetDemo}
               className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 hover:text-rose-400 transition"
-              title="Khôi phục dữ liệu mẫu"
+              title="Khôi phục trạng thái ban đầu"
             >
-              <RotateCcw className="w-4 h-4" />
+              <RotateCcw className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>

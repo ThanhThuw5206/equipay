@@ -1,22 +1,34 @@
 export interface Bank {
   id: string;
-  code: string; // e.g. 'VCB', 'MB'
-  name: string; // Ngân hàng TMCP Ngoại Thương Việt Nam
-  shortName: string; // Vietcombank
-  bin: string; // 970436
+  code: string;
+  name: string;
+  shortName: string;
+  bin: string;
   logo?: string;
 }
 
 export interface Member {
   id: string;
   name: string;
-  avatar: string; // emoji or image url
-  color: string; // hex or tailwind color
-  bankBin: string; // BIN or code for VietQR
+  avatar: string;
+  color: string;
+  bankBin: string;
   bankName: string;
   accountNumber: string;
   accountName: string;
   isAdmin?: boolean;
+}
+
+export type UserRole = 'ADMIN' | 'MEMBER';
+
+export interface UserAccount {
+  id: string;
+  username: string;
+  password: string;
+  displayName: string;
+  role: UserRole;
+  memberId?: string; // Gán vào thành viên cụ thể trong nhóm
+  createdAt: string;
 }
 
 export type ExpenseCategory = 
@@ -34,17 +46,11 @@ export interface Expense {
   title: string;
   amount: number;
   payerId: string;
-  beneficiaryIds: string[]; // IDs of members who share this expense
+  beneficiaryIds: string[];
   category: ExpenseCategory;
-  date: string; // ISO string
+  date: string;
   note?: string;
-}
-
-export interface DebtExpenseDetail {
-  expenseId: string;
-  title: string;
-  amount: number; // phần tiền người này chịu trong khoản chi đó
-  payerName: string;
+  createdBy?: string;
 }
 
 export interface DebtPayment {
@@ -70,7 +76,7 @@ export interface SettlementPeriod {
   totalAmount: number;
   expenses: Expense[];
   debts: DebtPayment[];
-  status: 'PENDING' | 'COMPLETED';
+  status: 'COMPLETED';
   settledAt?: string;
   closedBy?: string;
 }
@@ -81,5 +87,6 @@ export interface GroupState {
   expenses: Expense[];
   history: SettlementPeriod[];
   adminPin?: string;
-  settlementMode?: 'PAIRWISE' | 'OPTIMAL'; // Mặc định PAIRWISE (trừ nợ đúng từng cặp 1-1)
+  settlementMode?: 'PAIRWISE' | 'OPTIMAL';
+  users: UserAccount[];
 }

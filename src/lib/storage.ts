@@ -1,10 +1,10 @@
-import { DEFAULT_MEMBERS } from './constants';
-import { Expense, GroupState, Member, SettlementPeriod } from '@/types';
+import { DEFAULT_ADMIN_USER, DEFAULT_MEMBERS } from './constants';
+import { Expense, GroupState, Member, SettlementPeriod, UserAccount } from '@/types';
 import { calculateDebtsByMode } from './settlement-algorithm';
 
-const STORAGE_KEY = 'CHIA_TIEN_4_NGUOI_CLEAN_V2';
+const STORAGE_KEY = 'EQUIPAY_STATE_V3';
+const AUTH_KEY = 'EQUIPAY_CURRENT_USER_V3';
 
-// Khởi đầu trống hoàn toàn (0 khoản chi giả)
 const INITIAL_EXPENSES: Expense[] = [];
 
 export const INITIAL_STATE: GroupState = {
@@ -13,7 +13,8 @@ export const INITIAL_STATE: GroupState = {
   expenses: INITIAL_EXPENSES,
   history: [],
   adminPin: '1234',
-  settlementMode: 'PAIRWISE', // Bù trừ trực tiếp 1-1 theo từng người chi
+  settlementMode: 'PAIRWISE',
+  users: [DEFAULT_ADMIN_USER],
 };
 
 export function getInitialState(): GroupState {
@@ -27,6 +28,7 @@ export function getInitialState(): GroupState {
         return {
           ...INITIAL_STATE,
           ...parsed,
+          users: parsed.users && parsed.users.length > 0 ? parsed.users : [DEFAULT_ADMIN_USER],
           settlementMode: parsed.settlementMode || 'PAIRWISE',
         };
       }
@@ -49,6 +51,35 @@ export function saveState(state: GroupState): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (err) {
     console.error('Failed to save to storage:', err);
+  }
+}
+
+/**
+ * Quản lý phiên đăng nhập hiện tại
+ */
+export function getCurrentUser(): UserAccount | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(AUTH_KEY);
+    if (raw) {
+      return JSON.parse(raw);
+    }
+  } catch {
+    // Ignore
+  }
+  return null;
+}
+
+export function setCurrentUser(user: UserAccount | null): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (user) {
+      localStorage.setItem(AUTH_KEY, JSON.stringify(user));
+    } else {
+      localStorage.removeItem(AUTH_KEY);
+    }
+  } catch {
+    // Ignore
   }
 }
 
@@ -83,7 +114,7 @@ export function archiveCurrentPeriod(
 
   const newState: GroupState = {
     ...state,
-    expenses: [], // Reset danh sách chi tiêu cho kỳ mới
+    expenses: [],
     history: [newPeriod, ...state.history],
   };
 

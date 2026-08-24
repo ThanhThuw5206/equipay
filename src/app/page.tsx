@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Expense, GroupState, Member } from '@/types';
+import { Expense, GroupState, Member, UserAccount } from '@/types';
 import {
   getInitialState,
   saveState,
   archiveCurrentPeriod,
+  getCurrentUser,
+  setCurrentUser,
   INITIAL_STATE,
 } from '@/lib/storage';
 import { Navbar } from '@/components/Navbar';
@@ -16,10 +18,13 @@ import { SettlementModal } from '@/components/SettlementModal';
 import { MemberSettingsModal } from '@/components/MemberSettingsModal';
 import { HistoryModal } from '@/components/HistoryModal';
 import { CloudSyncModal } from '@/components/CloudSyncModal';
+import { LoginModal } from '@/components/LoginModal';
+import { UserManagerModal } from '@/components/UserManagerModal';
 
 export default function Home() {
   const [state, setState] = useState<GroupState>(INITIAL_STATE);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [currentUser, setCurrentUserState] = useState<UserAccount | null>(null);
 
   // Modals state
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
@@ -29,6 +34,8 @@ export default function Home() {
   const [selectedMemberForEdit, setSelectedMemberForEdit] = useState<string | null>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isSyncOpen, setIsSyncOpen] = useState(false);
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [isUserManagerOpen, setIsUserManagerOpen] = useState(false);
 
   // Admin permission
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
@@ -41,16 +48,43 @@ export default function Home() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Load initial state from LocalStorage on mount
+  // Load initial state on mount
   useEffect(() => {
     const loaded = getInitialState();
     setState(loaded);
+    const user = getCurrentUser();
+    setCurrentUserState(user);
+    if (user?.role === 'ADMIN') {
+      setIsAdminUnlocked(true);
+    }
     setIsLoaded(true);
   }, []);
 
   const updateState = (newState: GroupState) => {
     setState(newState);
     saveState(newState);
+  };
+
+  // Auth Handlers
+  const handleLoginSuccess = (user: UserAccount) => {
+    setCurrentUserState(user);
+    setCurrentUser(user);
+    if (user.role === 'ADMIN') {
+      setIsAdminUnlocked(true);
+    }
+    showToast(`Xin chào, ${user.displayName}! 🎉`);
+  };
+
+  const handleLogout = () => {
+    setCurrentUserState(null);
+    setCurrentUser(null);
+    setIsAdminUnlocked(false);
+    showToast('Đã đăng xuất tài khoản.');
+  };
+
+  const handleSaveUsers = (updatedUsers: UserAccount[]) => {
+    updateState({ ...state, users: updatedUsers });
+    showToast('Đã cập nhật danh sách tài khoản!');
   };
 
   // Expense Handlers
@@ -68,6 +102,7 @@ export default function Home() {
       const newExp: Expense = {
         ...expenseData,
         id: `exp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        createdBy: currentUser?.displayName || undefined,
       };
       updateState({
         ...state,
@@ -119,9 +154,9 @@ export default function Home() {
 
   // Reset Demo
   const handleResetDemo = () => {
-    if (confirm('Bạn có muốn khôi phục dữ liệu chi tiêu mẫu ban đầu của 4 người?')) {
+    if (confirm('Bạn có muốn khôi phục trạng thái ban đầu?')) {
       updateState(INITIAL_STATE);
-      showToast('Đã khôi phục dữ liệu mẫu! 🔄');
+      showToast('Đã khôi phục trạng thái ban đầu! 🔄');
     }
   };
 
@@ -131,12 +166,14 @@ export default function Home() {
     showToast('Đã nhập dữ liệu thành công!');
   };
 
+  const isAdmin = currentUser?.role === 'ADMIN' || isAdminUnlocked;
+
   if (!isLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-400">
         <div className="text-center space-y-2">
           <div className="w-10 h-10 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-xs">Đang tải dữ liệu nhóm...</p>
+          <p className="text-xs">Đang tải EquiPay...</p>
         </div>
       </div>
     );
@@ -161,7 +198,11 @@ export default function Home() {
         }}
         onOpenHistory={() => setIsHistoryOpen(true)}
         onOpenSync={() => setIsSyncOpen(true)}
-        isAdminUnlocked={isAdminUnlocked}
+        onOpenUserManager={() => setIsUserManagerOpen(true)}
+        onOpenLogin={() => setIsLoginOpen(true)}
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        isAdminUnlocked={isAdmin}
         setIsAdminUnlocked={setIsAdminUnlocked}
         onResetDemo={handleResetDemo}
       />
@@ -190,11 +231,27 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t border-slate-900 bg-slate-950/80 py-4 text-center text-xs text-slate-500">
         <p>
-          Ứng dụng Chia Tiền &amp; Kết Toán Nợ Tự Động • Tích hợp VietQR Napas 247 • Sẵn sàng Deploy Vercel
+          💎 EquiPay • Quản Lý &amp; Kết Toán Chi Tiêu Nhóm 4 Người • VietQR Napas 247
         </p>
       </footer>
 
       {/* Modals */}
+      <LoginModal
+        isOpen={isLoginOpen}
+        onClose={() => setIsLoginOpen(false)}
+        users={state.users || []}
+        onLoginSuccess={handleLoginSuccess}
+      />
+
+      <UserManagerModal
+        isOpen={isUserManagerOpen}
+        onClose={() => setIsUserManagerOpen(false)}
+        users={state.users || []}
+        members={state.members}
+        onSaveUsers={handleSaveUsers}
+        currentUser={currentUser}
+      />
+
       <AddExpenseModal
         isOpen={isAddExpenseOpen}
         onClose={() => {
@@ -211,11 +268,9 @@ export default function Home() {
         onClose={() => setIsSettlementOpen(false)}
         state={state}
         onArchivePeriod={handleArchivePeriod}
-        isAdminUnlocked={isAdminUnlocked}
+        isAdminUnlocked={isAdmin}
         onUnlockAdmin={() => {
-          setIsSettlementOpen(false);
-          setIsAdminUnlocked(true);
-          showToast('Đã mở quyền Admin!');
+          setIsLoginOpen(true);
         }}
       />
 
