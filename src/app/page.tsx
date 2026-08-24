@@ -256,8 +256,8 @@ export default function Home() {
         setIsAdminUnlocked={setIsAdminUnlocked}
       />
 
-      {/* Main Container */}
-      <main className="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-5">
+      {/* Main Container Full Width */}
+      <main className="flex-1 w-full max-w-[1700px] mx-auto px-4 sm:px-8 lg:px-12 py-5 sm:py-7 space-y-6">
         {/* 5 Tab Navigation Bar */}
         <TabNavigation
           activeTab={activeTab}
