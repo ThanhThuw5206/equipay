@@ -92,5 +92,30 @@ GRANT ALL ON TABLE members TO anon, authenticated;
 GRANT ALL ON TABLE expenses TO anon, authenticated;
 GRANT ALL ON TABLE settlement_history TO anon, authenticated;
 
--- Kích hoạt Realtime
-ALTER PUBLICATION supabase_realtime ADD TABLE equipay_group_data;
+-- ==============================================================================
+-- KÍCH HOẠT REALTIME CHO TOÀN BỘ 5 BẢNG (ĐỒNG BỘ TỨC THÌ TRÊN ĐIỆN THOẠI)
+-- ==============================================================================
+
+DO $$
+BEGIN
+  -- Bật Realtime cho từng bảng nếu chưa có
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'equipay_group_data') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE equipay_group_data;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'user_accounts') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE user_accounts;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'members') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE members;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'expenses') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE expenses;
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'settlement_history') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE settlement_history;
+  END IF;
+END $$;
