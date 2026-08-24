@@ -11,25 +11,31 @@ import {
   INITIAL_STATE,
 } from '@/lib/storage';
 import { Navbar } from '@/components/Navbar';
-import { BalanceOverview } from '@/components/BalanceOverview';
-import { ExpenseList } from '@/components/ExpenseList';
+import { TabNavigation, AppTab } from '@/components/TabNavigation';
+import { HomeTab } from '@/components/tabs/HomeTab';
+import { OverviewTab } from '@/components/tabs/OverviewTab';
+import { ExpensesTab } from '@/components/tabs/ExpensesTab';
+import { DebtsTab } from '@/components/tabs/DebtsTab';
+import { PaymentTab } from '@/components/tabs/PaymentTab';
 import { AddExpenseModal } from '@/components/AddExpenseModal';
-import { SettlementModal } from '@/components/SettlementModal';
 import { MemberSettingsModal } from '@/components/MemberSettingsModal';
 import { HistoryModal } from '@/components/HistoryModal';
 import { CloudSyncModal } from '@/components/CloudSyncModal';
 import { UserManagerModal } from '@/components/UserManagerModal';
 import { LoginScreen } from '@/components/LoginScreen';
+import { calculatePairwiseDebts } from '@/lib/settlement-algorithm';
 
 export default function Home() {
   const [state, setState] = useState<GroupState>(INITIAL_STATE);
   const [isLoaded, setIsLoaded] = useState(false);
   const [currentUser, setCurrentUserState] = useState<UserAccount | null>(null);
 
+  // Active Tab state
+  const [activeTab, setActiveTab] = useState<AppTab>('HOME');
+
   // Modals state
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
   const [editExpense, setEditExpense] = useState<Expense | null>(null);
-  const [isSettlementOpen, setIsSettlementOpen] = useState(false);
   const [isMembersOpen, setIsMembersOpen] = useState(false);
   const [selectedMemberForEdit, setSelectedMemberForEdit] = useState<string | null>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -149,6 +155,7 @@ export default function Home() {
     const nextState = archiveCurrentPeriod(state, title);
     setState(nextState);
     showToast(`Đã chốt sổ "${title}" và lưu vào lịch sử! 🚀`);
+    setActiveTab('HOME');
   };
 
   // Reset Demo
@@ -166,6 +173,7 @@ export default function Home() {
   };
 
   const isAdmin = currentUser?.role === 'ADMIN' || isAdminUnlocked;
+  const debts = calculatePairwiseDebts(state.members, state.expenses);
 
   if (!isLoaded) {
     return (
@@ -217,24 +225,64 @@ export default function Home() {
       />
 
       {/* Main Container */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-4 py-5 sm:py-6 space-y-6">
-        {/* Realtime Balances & Quick Settlement Bar */}
-        <BalanceOverview
-          members={state.members}
-          expenses={state.expenses}
-          onOpenAddExpense={handleAddNewExpenseClick}
-          onOpenSettlement={() => setIsSettlementOpen(true)}
-          onEditMember={handleEditMemberClick}
+      <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-4 py-4 sm:py-5 space-y-4">
+        {/* 5 Tab Navigation Bar */}
+        <TabNavigation
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          expenseCount={state.expenses.length}
+          debtCount={debts.length}
         />
 
-        {/* Expenses List & Filtering */}
-        <ExpenseList
-          expenses={state.expenses}
-          members={state.members}
-          onEditExpense={handleEditExpense}
-          onDeleteExpense={handleDeleteExpense}
-          onOpenAddExpense={handleAddNewExpenseClick}
-        />
+        {/* Tab Content Display */}
+        {activeTab === 'HOME' && (
+          <HomeTab
+            members={state.members}
+            expenses={state.expenses}
+            currentUser={currentUser}
+            onOpenAddExpense={handleAddNewExpenseClick}
+            onNavigateToTab={(tab) => setActiveTab(tab)}
+          />
+        )}
+
+        {activeTab === 'OVERVIEW' && (
+          <OverviewTab
+            members={state.members}
+            expenses={state.expenses}
+            onEditMember={handleEditMemberClick}
+          />
+        )}
+
+        {activeTab === 'EXPENSES' && (
+          <ExpensesTab
+            expenses={state.expenses}
+            members={state.members}
+            onEditExpense={handleEditExpense}
+            onDeleteExpense={handleDeleteExpense}
+            onOpenAddExpense={handleAddNewExpenseClick}
+          />
+        )}
+
+        {activeTab === 'DEBTS' && (
+          <DebtsTab
+            members={state.members}
+            expenses={state.expenses}
+            currentUser={currentUser}
+            onNavigateToPayment={() => setActiveTab('PAYMENT')}
+          />
+        )}
+
+        {activeTab === 'PAYMENT' && (
+          <PaymentTab
+            state={state}
+            currentUser={currentUser}
+            onArchivePeriod={handleArchivePeriod}
+            isAdminUnlocked={isAdmin}
+            onUnlockAdmin={() => {
+              setIsAdminUnlocked(true);
+            }}
+          />
+        )}
       </main>
 
       {/* Footer */}
@@ -263,17 +311,6 @@ export default function Home() {
         onSave={handleSaveExpense}
         members={state.members}
         editExpense={editExpense}
-      />
-
-      <SettlementModal
-        isOpen={isSettlementOpen}
-        onClose={() => setIsSettlementOpen(false)}
-        state={state}
-        onArchivePeriod={handleArchivePeriod}
-        isAdminUnlocked={isAdmin}
-        onUnlockAdmin={() => {
-          setIsAdminUnlocked(true);
-        }}
       />
 
       <MemberSettingsModal
