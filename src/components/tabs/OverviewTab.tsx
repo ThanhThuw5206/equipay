@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Expense, Member } from '@/types';
-import { calculateBalances, formatVND } from '@/lib/settlement-algorithm';
+import { calculateBalances, calculatePairwiseDebts, formatVND } from '@/lib/settlement-algorithm';
 import { CATEGORIES_CONFIG } from '@/lib/constants';
 import {
   TrendingUp,
@@ -12,20 +12,26 @@ import {
   CreditCard,
   Building,
   PieChart,
+  Scale,
+  ArrowRight,
 } from 'lucide-react';
 
 interface OverviewTabProps {
   members: Member[];
   expenses: Expense[];
   onEditMember: (member: Member) => void;
+  onNavigateToDebts?: () => void;
 }
 
 export const OverviewTab: React.FC<OverviewTabProps> = ({
   members,
   expenses,
   onEditMember,
+  onNavigateToDebts,
 }) => {
   const balances = calculateBalances(members, expenses);
+  const debts = calculatePairwiseDebts(members, expenses);
+  const memberMap = new Map(members.map((m) => [m.id, m]));
   const totalSpend = expenses.reduce((sum, e) => sum + e.amount, 0);
   const avgPerPerson = totalSpend > 0 ? totalSpend / (members.length || 4) : 0;
 
@@ -153,7 +159,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                             Được nhận lại
                           </span>
                         </div>
-                        <p className="text-base sm:text-lg font-black text-emerald-400 mt-0.5">
+                        <p className="text-base sm:text-lg font-black text-emerald-400 mt-0.5 font-mono">
                           +{formatVND(b.netBalance)}
                         </p>
                       </div>
@@ -167,7 +173,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                             Cần trả nợ
                           </span>
                         </div>
-                        <p className="text-base sm:text-lg font-black text-rose-400 mt-0.5">
+                        <p className="text-base sm:text-lg font-black text-rose-400 mt-0.5 font-mono">
                           -{formatVND(Math.abs(b.netBalance))}
                         </p>
                       </div>
@@ -179,7 +185,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                           <CheckCircle2 className="w-3.5 h-3.5 text-slate-400" />
                           Đã cân bằng
                         </div>
-                        <p className="text-base sm:text-lg font-bold text-slate-300 mt-0.5">
+                        <p className="text-base sm:text-lg font-bold text-slate-300 mt-0.5 font-mono">
                           0 đ
                         </p>
                       </div>
@@ -207,6 +213,52 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
           })}
         </div>
       </div>
+
+      {/* Synchronized Debt Transfers Summary */}
+      {debts.length > 0 && (
+        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-4 sm:p-5 text-slate-100">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+              <Scale className="w-4 h-4" />
+              <span>Các lệnh chuyển tiền cần thực hiện ({debts.length})</span>
+            </h3>
+            {onNavigateToDebts && (
+              <button
+                onClick={onNavigateToDebts}
+                className="text-xs text-emerald-400 hover:underline font-semibold flex items-center gap-0.5"
+              >
+                <span>Xem chi tiết &amp; Quét QR</span>
+                <ArrowRight className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            {debts.map((debt) => {
+              const fromMem = memberMap.get(debt.fromMemberId);
+              const toMem = memberMap.get(debt.toMemberId);
+              return (
+                <div
+                  key={debt.id}
+                  className="p-3 rounded-2xl bg-slate-950 border border-slate-800/90 flex items-center justify-between gap-2 text-xs"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm">{fromMem?.avatar}</span>
+                    <span className="font-bold text-slate-200 truncate">{fromMem?.name}</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <span className="text-sm">{toMem?.avatar}</span>
+                    <span className="font-bold text-emerald-300 truncate">{toMem?.name}</span>
+                  </div>
+
+                  <span className="font-black text-amber-400 font-mono text-sm shrink-0">
+                    {formatVND(debt.amount)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Category Breakdown */}
       {Object.keys(categoryTotals).length > 0 && (

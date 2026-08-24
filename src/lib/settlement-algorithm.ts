@@ -113,8 +113,8 @@ export function calculatePairwiseDebts(
       const diff = totalAPaidForB - totalBPaidForA;
       const roundedDiff = Math.round(Math.abs(diff));
 
-      // Chỉ tạo lệnh chuyển tiền nếu có nợ thực tế (> 1000đ)
-      if (roundedDiff >= 1000) {
+      // Tạo lệnh chuyển tiền nếu có chênh lệch nợ (> 0đ)
+      if (roundedDiff > 0) {
         if (diff > 0) {
           // B nợ A
           debts.push({

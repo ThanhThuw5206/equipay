@@ -250,6 +250,7 @@ export default function Home() {
             members={state.members}
             expenses={state.expenses}
             onEditMember={handleEditMemberClick}
+            onNavigateToDebts={() => setActiveTab('DEBTS')}
           />
         )}
 

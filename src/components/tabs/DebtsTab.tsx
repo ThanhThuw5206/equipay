@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Expense, Member, UserAccount } from '@/types';
+import { DebtPayment, Expense, Member, UserAccount } from '@/types';
 import { calculatePairwiseDebts, formatVND } from '@/lib/settlement-algorithm';
+import { generateVietQRUrl } from '@/lib/vietqr';
 import {
   Scale,
   ArrowRight,
@@ -12,6 +13,10 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Building,
+  Copy,
+  Check,
+  X,
 } from 'lucide-react';
 
 interface DebtsTabProps {
@@ -27,10 +32,11 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
   currentUser,
   onNavigateToPayment,
 }) => {
-  const [filterMemberId, setFilterMemberId] = useState<string>(
-    currentUser?.memberId || 'ALL'
-  );
+  // Mặc định hiển thị TẤT CẢ công nợ của cả 4 người để không bị ẩn lệnh
+  const [filterMemberId, setFilterMemberId] = useState<string>('ALL');
   const [expandedDebtId, setExpandedDebtId] = useState<string | null>(null);
+  const [selectedQRDebt, setSelectedQRDebt] = useState<DebtPayment | null>(null);
+  const [copiedStkId, setCopiedStkId] = useState<string | null>(null);
 
   const debts = calculatePairwiseDebts(members, expenses);
   const memberMap = new Map(members.map((m) => [m.id, m]));
@@ -40,6 +46,12 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
     return d.fromMemberId === filterMemberId || d.toMemberId === filterMemberId;
   });
 
+  const handleCopySTK = (debtId: string, stk: string) => {
+    navigator.clipboard.writeText(stk);
+    setCopiedStkId(debtId);
+    setTimeout(() => setCopiedStkId(null), 2000);
+  };
+
   return (
     <div className="space-y-4 animate-fadeIn">
       {/* Header & Filter */}
@@ -47,10 +59,10 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
         <div>
           <h2 className="text-base sm:text-lg font-black flex items-center gap-2">
             <Scale className="w-5 h-5 text-amber-400" />
-            <span>Ma Trận Công Nợ Trực Tiếp 1-1 ({debts.length})</span>
+            <span>Công Nợ &amp; Lệnh Trả Tiền 1-1 ({debts.length} giao dịch)</span>
           </h2>
           <p className="text-xs text-slate-400">
-            Bù trừ đúng người chi và người thụ hưởng • Không cấn trừ bắc cầu
+            Bù trừ chính xác giữa người chi và người thụ hưởng • Kèm mã QR quét trả ngay
           </p>
         </div>
 
@@ -62,7 +74,7 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
             onChange={(e) => setFilterMemberId(e.target.value)}
             className="bg-slate-950 border border-slate-800 rounded-xl py-1.5 px-3 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
           >
-            <option value="ALL">Tất cả 4 thành viên</option>
+            <option value="ALL">Hiển thị tất cả ({debts.length} lệnh)</option>
             {members.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.avatar} {m.name}
@@ -79,11 +91,13 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
             <p className="text-2xl mb-1">🎉</p>
             <p className="text-sm font-bold text-slate-300">
               {expenses.length === 0
-                ? 'Chưa có khoản chi nào để tính công nợ.'
+                ? 'Chưa có khoản chi nào được thêm vào hệ thống.'
                 : 'Không có khoản nợ nào cần thanh toán!'}
             </p>
             <p className="text-xs text-slate-500 mt-1">
-              Tất cả các thành viên đang ở trạng thái cân bằng.
+              {expenses.length === 0
+                ? 'Hãy vào tab "Trang chủ" hoặc "Chi tiết" để thêm khoản chi đầu tiên.'
+                : 'Tất cả các thành viên đang ở trạng thái cân bằng chi tiêu.'}
             </p>
           </div>
         ) : (
@@ -102,9 +116,12 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
                   <div className="flex items-center gap-2 min-w-0">
                     <div className="flex items-center gap-1.5 min-w-0">
                       <span className="text-base">{fromMem?.avatar}</span>
-                      <span className="font-bold text-slate-200 text-xs sm:text-sm truncate">
-                        {fromMem?.name}
-                      </span>
+                      <div>
+                        <span className="font-bold text-slate-200 text-xs sm:text-sm block truncate">
+                          {fromMem?.name}
+                        </span>
+                        <span className="text-[10px] text-rose-400 font-medium">Người trả tiền</span>
+                      </div>
                     </div>
 
                     <div className="flex items-center text-slate-500 shrink-0 px-1">
@@ -113,9 +130,12 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
 
                     <div className="flex items-center gap-1.5 min-w-0">
                       <span className="text-base">{toMem?.avatar}</span>
-                      <span className="font-bold text-emerald-300 text-xs sm:text-sm truncate">
-                        {toMem?.name}
-                      </span>
+                      <div>
+                        <span className="font-bold text-emerald-300 text-xs sm:text-sm block truncate">
+                          {toMem?.name}
+                        </span>
+                        <span className="text-[10px] text-emerald-400 font-medium">Người nhận tiền</span>
+                      </div>
                     </div>
                   </div>
 
@@ -126,23 +146,53 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
                   </div>
                 </div>
 
-                {/* Bank Preview & Jump to QR button */}
-                <div className="bg-slate-950/80 rounded-xl p-2.5 border border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                  <div>
-                    <span className="text-slate-400">Chuyển vào: </span>
-                    <strong className="text-slate-200">{toMem?.bankName}</strong> •{' '}
-                    <span className="text-emerald-400 font-mono font-bold">
-                      {toMem?.accountNumber || 'Chưa có STK'}
-                    </span>
+                {/* Bank Preview & Quick Actions */}
+                <div className="bg-slate-950/80 rounded-xl p-3 border border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+                  <div className="space-y-0.5 min-w-0">
+                    <div className="flex items-center gap-1.5 text-slate-300 font-medium">
+                      <Building className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                      <span className="truncate">{toMem?.bankName || 'Chưa cài ngân hàng'}</span>
+                      <span className="text-slate-500">•</span>
+                      <span className="font-mono text-emerald-400 select-all font-bold">
+                        {toMem?.accountNumber || 'Chưa có STK'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 truncate">
+                      Chủ TK: <strong className="text-slate-200 uppercase">{toMem?.accountName || 'N/A'}</strong>
+                    </p>
                   </div>
 
-                  <button
-                    onClick={onNavigateToPayment}
-                    className="py-1.5 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs flex items-center justify-center gap-1 transition shadow-sm"
-                  >
-                    <QrCode className="w-3.5 h-3.5" />
-                    <span>Quét mã VietQR trả tiền</span>
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {toMem?.accountNumber && (
+                      <button
+                        type="button"
+                        onClick={() => handleCopySTK(debt.id, toMem.accountNumber)}
+                        className="text-xs px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center gap-1 transition"
+                        title="Sao chép số tài khoản"
+                      >
+                        {copiedStkId === debt.id ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-400" />
+                            <span className="text-emerald-400">Đã chép</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>Chép STK</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+
+                    {/* Show VietQR Modal right here */}
+                    <button
+                      onClick={() => setSelectedQRDebt(debt)}
+                      className="py-1.5 px-3 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs flex items-center justify-center gap-1 transition shadow-sm"
+                    >
+                      <QrCode className="w-3.5 h-3.5" />
+                      <span>Quét VietQR</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Detailed Breakdown Toggle */}
@@ -225,6 +275,96 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
           })
         )}
       </div>
+
+      {/* Individual VietQR Fullscreen Modal */}
+      {selectedQRDebt && (() => {
+        const toMember = memberMap.get(selectedQRDebt.toMemberId);
+        const fromMember = memberMap.get(selectedQRDebt.fromMemberId);
+        const desc = `TRA TIEN ${toMember?.name ? toMember.name.slice(0, 6) : ''} ${fromMember?.name ? fromMember.name.slice(0, 6) : ''}`.toUpperCase();
+        const qrUrl = toMember
+          ? generateVietQRUrl({
+              bankBin: toMember.bankBin,
+              accountNumber: toMember.accountNumber,
+              amount: selectedQRDebt.amount,
+              description: desc,
+              accountName: toMember.accountName,
+              template: 'compact2',
+            })
+          : '';
+
+        return (
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fadeIn">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-5 shadow-2xl text-slate-100 text-center relative">
+              <button
+                onClick={() => setSelectedQRDebt(null)}
+                className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center justify-center gap-1 text-xs text-emerald-400 font-bold mb-1">
+                <span>Quét mã VietQR Napas 247</span>
+              </div>
+              <h3 className="font-bold text-base text-slate-100">
+                {fromMember?.name} ➔ Trả {toMember?.name}
+              </h3>
+              <p className="text-xl font-black text-emerald-400 mt-1 font-mono">
+                {formatVND(selectedQRDebt.amount)}
+              </p>
+
+              <div className="my-4 p-2 bg-white rounded-2xl shadow-inner inline-block max-w-full">
+                {qrUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={qrUrl}
+                    alt={`VietQR ${toMember?.name}`}
+                    className="w-64 h-auto mx-auto rounded-lg"
+                  />
+                ) : (
+                  <div className="p-8 text-slate-800 text-xs">
+                    Chưa có thông tin số tài khoản
+                  </div>
+                )}
+              </div>
+
+              <div className="text-xs bg-slate-950 rounded-xl p-3 border border-slate-800 text-left space-y-1 mb-4">
+                <p className="text-slate-400">
+                  Người nhận: <strong className="text-emerald-300 font-bold">{toMember?.name}</strong>
+                </p>
+                <p className="text-slate-400">
+                  Ngân hàng: <strong className="text-slate-200">{toMember?.bankName}</strong>
+                </p>
+                <p className="text-slate-400 flex items-center justify-between">
+                  <span>
+                    STK: <strong className="text-emerald-400 font-mono text-sm">{toMember?.accountNumber || 'Chưa điền'}</strong>
+                  </span>
+                  {toMember?.accountNumber && (
+                    <button
+                      onClick={() => handleCopySTK('qr_modal', toMember.accountNumber)}
+                      className="text-[10px] text-blue-400 hover:underline"
+                    >
+                      Sao chép
+                    </button>
+                  )}
+                </p>
+                <p className="text-slate-400">
+                  Chủ TK: <strong className="text-slate-200 uppercase">{toMember?.accountName || 'N/A'}</strong>
+                </p>
+                <p className="text-slate-400 truncate">
+                  Nội dung: <strong className="text-slate-200">{desc}</strong>
+                </p>
+              </div>
+
+              <button
+                onClick={() => setSelectedQRDebt(null)}
+                className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-sm transition"
+              >
+                Đã hiểu &amp; Đóng
+              </button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
