@@ -1,69 +1,249 @@
-import Image from "next/image";
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { Expense, GroupState, Member } from '@/types';
+import {
+  getInitialState,
+  saveState,
+  archiveCurrentPeriod,
+  INITIAL_STATE,
+} from '@/lib/storage';
+import { Navbar } from '@/components/Navbar';
+import { BalanceOverview } from '@/components/BalanceOverview';
+import { ExpenseList } from '@/components/ExpenseList';
+import { AddExpenseModal } from '@/components/AddExpenseModal';
+import { SettlementModal } from '@/components/SettlementModal';
+import { MemberSettingsModal } from '@/components/MemberSettingsModal';
+import { HistoryModal } from '@/components/HistoryModal';
+import { CloudSyncModal } from '@/components/CloudSyncModal';
 
 export default function Home() {
+  const [state, setState] = useState<GroupState>(INITIAL_STATE);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Modals state
+  const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
+  const [editExpense, setEditExpense] = useState<Expense | null>(null);
+  const [isSettlementOpen, setIsSettlementOpen] = useState(false);
+  const [isMembersOpen, setIsMembersOpen] = useState(false);
+  const [selectedMemberForEdit, setSelectedMemberForEdit] = useState<string | null>(null);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isSyncOpen, setIsSyncOpen] = useState(false);
+
+  // Admin permission
+  const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
+
+  // Toast notification
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  // Load initial state from LocalStorage on mount
+  useEffect(() => {
+    const loaded = getInitialState();
+    setState(loaded);
+    setIsLoaded(true);
+  }, []);
+
+  const updateState = (newState: GroupState) => {
+    setState(newState);
+    saveState(newState);
+  };
+
+  // Expense Handlers
+  const handleSaveExpense = (
+    expenseData: Omit<Expense, 'id'>,
+    editId?: string
+  ) => {
+    if (editId) {
+      const updated = state.expenses.map((e) =>
+        e.id === editId ? { ...expenseData, id: editId } : e
+      );
+      updateState({ ...state, expenses: updated });
+      showToast('Đã cập nhật khoản chi thành công! ✨');
+    } else {
+      const newExp: Expense = {
+        ...expenseData,
+        id: `exp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      };
+      updateState({
+        ...state,
+        expenses: [newExp, ...state.expenses],
+      });
+      showToast('Đã thêm khoản chi mới! 🎉');
+    }
+  };
+
+  const handleDeleteExpense = (expenseId: string) => {
+    if (confirm('Bạn có chắc chắn muốn xóa khoản chi này?')) {
+      const filtered = state.expenses.filter((e) => e.id !== expenseId);
+      updateState({ ...state, expenses: filtered });
+      showToast('Đã xóa khoản chi.');
+    }
+  };
+
+  const handleEditExpense = (expense: Expense) => {
+    setEditExpense(expense);
+    setIsAddExpenseOpen(true);
+  };
+
+  const handleAddNewExpenseClick = () => {
+    setEditExpense(null);
+    setIsAddExpenseOpen(true);
+  };
+
+  // Member Handlers
+  const handleSaveMembers = (updatedMembers: Member[], newPin?: string) => {
+    updateState({
+      ...state,
+      members: updatedMembers,
+      adminPin: newPin || state.adminPin,
+    });
+    showToast('Đã lưu thông tin 4 thành viên & Ngân hàng! 💳');
+  };
+
+  const handleEditMemberClick = (member: Member) => {
+    setSelectedMemberForEdit(member.id);
+    setIsMembersOpen(true);
+  };
+
+  // Settlement Finalize
+  const handleArchivePeriod = (title: string) => {
+    const nextState = archiveCurrentPeriod(state, title);
+    setState(nextState);
+    showToast(`Đã chốt sổ "${title}" và lưu vào lịch sử! 🚀`);
+  };
+
+  // Reset Demo
+  const handleResetDemo = () => {
+    if (confirm('Bạn có muốn khôi phục dữ liệu chi tiêu mẫu ban đầu của 4 người?')) {
+      updateState(INITIAL_STATE);
+      showToast('Đã khôi phục dữ liệu mẫu! 🔄');
+    }
+  };
+
+  // Import Backup
+  const handleImportState = (imported: GroupState) => {
+    updateState(imported);
+    showToast('Đã nhập dữ liệu thành công!');
+  };
+
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-400">
+        <div className="text-center space-y-2">
+          <div className="w-10 h-10 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="text-xs">Đang tải dữ liệu nhóm...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-4 right-4 z-50 bg-emerald-500 text-slate-950 font-bold px-4 py-2.5 rounded-2xl shadow-xl animate-fadeIn text-xs sm:text-sm flex items-center gap-2">
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Top Navigation */}
+      <Navbar
+        state={state}
+        onUpdateState={updateState}
+        onOpenMembers={() => {
+          setSelectedMemberForEdit(null);
+          setIsMembersOpen(true);
+        }}
+        onOpenHistory={() => setIsHistoryOpen(true)}
+        onOpenSync={() => setIsSyncOpen(true)}
+        isAdminUnlocked={isAdminUnlocked}
+        setIsAdminUnlocked={setIsAdminUnlocked}
+        onResetDemo={handleResetDemo}
+      />
+
+      {/* Main Container */}
+      <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-4 py-5 sm:py-6 space-y-6">
+        {/* Realtime Balances & Quick Settlement Bar */}
+        <BalanceOverview
+          members={state.members}
+          expenses={state.expenses}
+          onOpenAddExpense={handleAddNewExpenseClick}
+          onOpenSettlement={() => setIsSettlementOpen(true)}
+          onEditMember={handleEditMemberClick}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+
+        {/* Expenses List & Filtering */}
+        <ExpenseList
+          expenses={state.expenses}
+          members={state.members}
+          onEditExpense={handleEditExpense}
+          onDeleteExpense={handleDeleteExpense}
+          onOpenAddExpense={handleAddNewExpenseClick}
+        />
       </main>
+
+      {/* Footer */}
+      <footer className="border-t border-slate-900 bg-slate-950/80 py-4 text-center text-xs text-slate-500">
+        <p>
+          Ứng dụng Chia Tiền &amp; Kết Toán Nợ Tự Động • Tích hợp VietQR Napas 247 • Sẵn sàng Deploy Vercel
+        </p>
+      </footer>
+
+      {/* Modals */}
+      <AddExpenseModal
+        isOpen={isAddExpenseOpen}
+        onClose={() => {
+          setIsAddExpenseOpen(false);
+          setEditExpense(null);
+        }}
+        onSave={handleSaveExpense}
+        members={state.members}
+        editExpense={editExpense}
+      />
+
+      <SettlementModal
+        isOpen={isSettlementOpen}
+        onClose={() => setIsSettlementOpen(false)}
+        state={state}
+        onArchivePeriod={handleArchivePeriod}
+        isAdminUnlocked={isAdminUnlocked}
+        onUnlockAdmin={() => {
+          setIsSettlementOpen(false);
+          setIsAdminUnlocked(true);
+          showToast('Đã mở quyền Admin!');
+        }}
+      />
+
+      <MemberSettingsModal
+        isOpen={isMembersOpen}
+        onClose={() => {
+          setIsMembersOpen(false);
+          setSelectedMemberForEdit(null);
+        }}
+        members={state.members}
+        onSaveMembers={handleSaveMembers}
+        adminPin={state.adminPin}
+        selectedMemberId={selectedMemberForEdit}
+      />
+
+      <HistoryModal
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        history={state.history}
+        members={state.members}
+      />
+
+      <CloudSyncModal
+        isOpen={isSyncOpen}
+        onClose={() => setIsSyncOpen(false)}
+        state={state}
+        onImportState={handleImportState}
+      />
     </div>
   );
 }

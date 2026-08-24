@@ -1,36 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🚀 Ứng Dụng Chia Tiền Nhóm 4 Người & Kết Toán Nợ Tự Động Qua VietQR
 
-## Getting Started
+Ứng dụng web hiện đại (Mobile-First) dành riêng cho nhóm 4 người để quản lý chi tiêu chung, tự động tính toán bù trừ công nợ tối ưu (Min-Cash-Flow) khi Admin chốt sổ và sinh mã **VietQR Napas 247 động** điền sẵn chính xác số tiền, ngân hàng, số tài khoản và cú pháp chuyển khoản.
 
-First, run the development server:
+---
+
+## ✨ Tính Năng Nổi Bật
+
+1. **📊 Quản lý 4 thành viên & Thông tin Ngân hàng**:
+   - Cài đặt tên, ảnh đại diện, ngân hàng (hơn 20 ngân hàng VN: MB, VCB, Techcombank, ACB, VPBank, TPBank, BIDV...), số tài khoản và tên chủ tài khoản.
+   - Phân quyền Quản trị viên (Admin) với mã PIN bảo mật.
+2. **💸 Kê khai chi tiêu linh hoạt**:
+   - Thêm khoản chi nhanh với các phím tắt số tiền (+50k, +100k, +200k, +500k, +1M) và danh mục (Ăn uống, Cà phê, Mua sắm, Đi lại, Khách sạn...).
+   - Hỗ trợ chia đều cho 4 người hoặc chọn cụ thể 1, 2, 3 người hưởng thụ.
+   - Tính toán trực quan số tiền mỗi người phải chịu theo thời gian thực.
+3. **⚡ Kết toán nợ & Tối ưu hóa bù trừ công nợ (Debt Simplification)**:
+   - Admin bấm "Chốt sổ & Kết toán QR", thuật toán **Min-Cash-Flow** tự động triệt tiêu công nợ chéo, giảm thiểu tối đa số lượng lệnh chuyển tiền giữa 4 người.
+4. **📱 Tích hợp VietQR Napas 247**:
+   - Tự động sinh mã VietQR động cho từng lệnh chuyển tiền (điền sẵn đúng STK người nhận, đúng số tiền nợ và nội dung định danh).
+   - Nút **Sao chép số tài khoản**, **Xem mã QR chuyển khoản**, **Đánh dấu đã thanh toán**.
+5. **📲 Chia sẻ & Xuất hóa đơn**:
+   - Nút **"Sao chép tóm tắt gửi Zalo / Messenger"** định dạng đẹp mắt với emoji.
+   - Nút **"Tải ảnh hóa đơn chốt nợ (PNG)"** để gửi trực tiếp vào nhóm chat.
+6. **📜 Lịch sử các kỳ chốt sổ**:
+   - Lưu trữ toàn bộ các đợt kết toán trước đó kèm chi tiết ai đã trả ai bao nhiêu để tra cứu bất kỳ lúc nào.
+7. **☁️ Tùy chọn Đồng bộ Đám mây (Supabase)**:
+   - File `supabase_schema.sql` có sẵn để thiết lập Realtime Database nếu muốn cả 4 người thao tác trên 4 điện thoại cùng lúc.
+
+---
+
+## 🛠️ Hướng Dẫn Chạy Cục Bộ (Local)
 
 ```bash
+# 1. Cài đặt các gói phụ thuộc (nếu chưa cài)
+npm install
+
+# 2. Chạy môi trường phát triển
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# 3. Mở trình duyệt truy cập:
+http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🌐 Hướng Dẫn Deploy Lên Vercel (100% Miễn Phí)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Đẩy mã nguồn dự án lên một kho lưu trữ **GitHub** (hoặc GitLab / Bitbucket) của bạn.
+2. Truy cập [vercel.com](https://vercel.com) và đăng nhập bằng tài khoản GitHub.
+3. Bấm nút **"Add New..."** ➔ Chọn **"Project"**.
+4. Chọn kho lưu trữ bạn vừa đẩy lên.
+5. Ở phần **Framework Preset**, Vercel sẽ tự động nhận diện là **Next.js**.
+6. Bấm nút **"Deploy"** và đợi khoảng 1 phút.
+7. Bạn sẽ nhận được đường dẫn công khai (ví dụ: `https://chiatien-nhom4.vercel.app`) để cả nhóm 4 người cùng truy cập trên điện thoại!
