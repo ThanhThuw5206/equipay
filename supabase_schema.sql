@@ -10,18 +10,20 @@ CREATE TABLE IF NOT EXISTS equipay_group_data (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. Bảng nhóm chi tiêu
-CREATE TABLE IF NOT EXISTS groups (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL DEFAULT 'Hội 4 Anh Em',
-  admin_pin TEXT DEFAULT '1234',
+-- 2. Bảng lưu trữ tài khoản người dùng đăng nhập
+CREATE TABLE IF NOT EXISTS user_accounts (
+  id TEXT PRIMARY KEY,
+  username TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  display_name TEXT,
+  role TEXT NOT NULL DEFAULT 'MEMBER',
+  member_id TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- 3. Bảng thông tin 4 thành viên & Ngân hàng
 CREATE TABLE IF NOT EXISTS members (
   id TEXT PRIMARY KEY,
-  group_id UUID,
   name TEXT NOT NULL,
   avatar TEXT NOT NULL DEFAULT '👤',
   color TEXT NOT NULL DEFAULT '#3B82F6',
@@ -36,7 +38,6 @@ CREATE TABLE IF NOT EXISTS members (
 -- 4. Bảng các khoản chi tiêu đang hoạt động (Chưa kết toán)
 CREATE TABLE IF NOT EXISTS expenses (
   id TEXT PRIMARY KEY,
-  group_id UUID,
   title TEXT NOT NULL,
   amount NUMERIC NOT NULL,
   payer_id TEXT NOT NULL,
@@ -50,7 +51,6 @@ CREATE TABLE IF NOT EXISTS expenses (
 -- 5. Bảng lưu trữ lịch sử các kỳ đã kết toán
 CREATE TABLE IF NOT EXISTS settlement_history (
   id TEXT PRIMARY KEY,
-  group_id UUID,
   title TEXT NOT NULL,
   start_date TIMESTAMPTZ,
   end_date TIMESTAMPTZ DEFAULT NOW(),
@@ -65,14 +65,13 @@ CREATE TABLE IF NOT EXISTS settlement_history (
 -- CẤU HÌNH QUYỀN ĐỌC / GHI (ROW LEVEL SECURITY POLICIES CHO PHÉP CLIENT GHI ĐƯỢC)
 -- ==============================================================================
 
--- Tắt hoặc cấp quyền Full Access cho tất cả các bảng
 ALTER TABLE equipay_group_data ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow all access on equipay_group_data" ON equipay_group_data;
 CREATE POLICY "Allow all access on equipay_group_data" ON equipay_group_data FOR ALL USING (true) WITH CHECK (true);
 
-ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Allow all access on groups" ON groups;
-CREATE POLICY "Allow all access on groups" ON groups FOR ALL USING (true) WITH CHECK (true);
+ALTER TABLE user_accounts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all access on user_accounts" ON user_accounts;
+CREATE POLICY "Allow all access on user_accounts" ON user_accounts FOR ALL USING (true) WITH CHECK (true);
 
 ALTER TABLE members ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow all access on members" ON members;
@@ -88,10 +87,10 @@ CREATE POLICY "Allow all access on settlement_history" ON settlement_history FOR
 
 -- Cấp quyền truy cập cho Role anon và authenticated
 GRANT ALL ON TABLE equipay_group_data TO anon, authenticated;
-GRANT ALL ON TABLE groups TO anon, authenticated;
+GRANT ALL ON TABLE user_accounts TO anon, authenticated;
 GRANT ALL ON TABLE members TO anon, authenticated;
 GRANT ALL ON TABLE expenses TO anon, authenticated;
 GRANT ALL ON TABLE settlement_history TO anon, authenticated;
 
--- Kích hoạt Realtime cho tất cả các bảng
+-- Kích hoạt Realtime
 ALTER PUBLICATION supabase_realtime ADD TABLE equipay_group_data;

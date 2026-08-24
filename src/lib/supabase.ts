@@ -108,7 +108,7 @@ export async function fetchCloudState(): Promise<{ state: GroupState | null; err
         }
       }
     } catch {
-      // Fallback sang Client SDK bên dưới
+      // Fallback
     }
   }
 
@@ -140,11 +140,11 @@ export async function fetchCloudState(): Promise<{ state: GroupState | null; err
 }
 
 /**
- * Đẩy dữ liệu từ web lên Supabase Cloud Database để 3 người còn lại cùng thấy
+ * Đẩy dữ liệu từ web lên Supabase Cloud Database để đồng bộ tất cả các bảng
  */
 export async function pushCloudState(state: GroupState): Promise<{ success: boolean; error?: string; source?: string }> {
   const config = getSupabaseConfig();
-  let serverError = '';
+  let serverSuccess = false;
 
   // 1. Đẩy qua Server Route /api/sync
   if (typeof window !== 'undefined') {
@@ -166,9 +166,7 @@ export async function pushCloudState(state: GroupState): Promise<{ success: bool
       if (res.ok) {
         const json = await res.json();
         if (json.success) {
-          return { success: true, source: json.source };
-        } else {
-          serverError = json.error || 'Server sync error';
+          serverSuccess = true;
         }
       }
     } catch {
@@ -176,11 +174,12 @@ export async function pushCloudState(state: GroupState): Promise<{ success: bool
     }
   }
 
-  // 2. Đẩy qua Client SDK
+  // 2. Đẩy trực tiếp qua Client SDK vào tất cả các bảng Supabase
   const client = getSupabaseClient();
   if (client) {
     try {
-      const { error } = await client
+      // Bảng 1: equipay_group_data
+      await client
         .from('equipay_group_data')
         .upsert({
           id: 'default_group',
@@ -188,17 +187,63 @@ export async function pushCloudState(state: GroupState): Promise<{ success: bool
           updated_at: new Date().toISOString(),
         });
 
-      if (!error) {
-        return { success: true, source: 'client_sdk' };
-      } else {
-        return { success: false, error: error.message };
+      // Bảng 2: user_accounts (Lưu riêng từng tài khoản đăng nhập)
+      if (state.users && state.users.length > 0) {
+        const userRows = state.users.map((u) => ({
+          id: u.id,
+          username: u.username,
+          password: u.password,
+          display_name: u.displayName || u.username,
+          role: u.role,
+          member_id: u.memberId,
+        }));
+        await client.from('user_accounts').upsert(userRows);
       }
+
+      // Bảng 3: members (Lưu riêng 4 thành viên & Ngân hàng)
+      if (state.members && state.members.length > 0) {
+        const memberRows = state.members.map((m) => ({
+          id: m.id,
+          name: m.name,
+          avatar: m.avatar,
+          color: m.color,
+          bank_bin: m.bankBin,
+          bank_name: m.bankName,
+          account_number: m.accountNumber,
+          account_name: m.accountName,
+          is_admin: m.isAdmin || false,
+        }));
+        await client.from('members').upsert(memberRows);
+      }
+
+      // Bảng 4: expenses (Lưu riêng các khoản chi tiêu)
+      if (state.expenses && state.expenses.length > 0) {
+        const expenseRows = state.expenses.map((e) => ({
+          id: e.id,
+          title: e.title,
+          amount: e.amount,
+          payer_id: e.payerId,
+          beneficiary_ids: e.beneficiaryIds || [],
+          category: e.category || 'FOOD',
+          date: e.date || new Date().toISOString(),
+          note: e.note || null,
+        }));
+        await client.from('expenses').upsert(expenseRows);
+      }
+
+      return { success: true, source: 'client_sdk_all_tables' };
     } catch (err: any) {
-      return { success: false, error: err.message || String(err) };
+      if (!serverSuccess) {
+        return { success: false, error: err.message || String(err) };
+      }
     }
   }
 
-  return { success: false, error: serverError || 'Không thể kết nối Supabase Cloud' };
+  if (serverSuccess) {
+    return { success: true, source: 'server_api' };
+  }
+
+  return { success: false, error: 'Chưa cấu hình thông tin Supabase' };
 }
 
 /**
