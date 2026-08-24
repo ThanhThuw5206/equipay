@@ -2,6 +2,35 @@ import { DebtPayment, Member } from '@/types';
 import { formatVND } from './settlement-algorithm';
 
 /**
+ * Hàm tạo nội dung chuyển khoản thông minh, rõ ràng và chuẩn ngân hàng Napas
+ * Ví dụ: "THANH TRA TIEN HUY EQUIPAY"
+ */
+export function generateTransferDescription(
+  fromName: string,
+  toName: string,
+  extra?: string
+): string {
+  const cleanFrom = removeVietnameseTones(fromName || 'BAN')
+    .replace(/[^a-zA-Z0-9 ]/g, '')
+    .trim()
+    .toUpperCase();
+  const cleanTo = removeVietnameseTones(toName || 'BAN')
+    .replace(/[^a-zA-Z0-9 ]/g, '')
+    .trim()
+    .toUpperCase();
+
+  if (extra) {
+    const cleanExtra = removeVietnameseTones(extra)
+      .replace(/[^a-zA-Z0-9 ]/g, '')
+      .trim()
+      .toUpperCase();
+    return `${cleanFrom} TRA TIEN ${cleanTo} ${cleanExtra}`.substring(0, 45);
+  }
+
+  return `${cleanFrom} TRA TIEN ${cleanTo} EQUIPAY`.substring(0, 45);
+}
+
+/**
  * Tạo link ảnh VietQR Napas 247 động
  * @param bankBin Mã BIN ngân hàng (VD: 970422 cho MB, 970436 cho VCB)
  * @param accountNumber Số tài khoản nhận
@@ -102,12 +131,13 @@ export function generateSettlementShareText(
       );
       if (stk) {
         lines.push(`   🏦 ${bank} | STK: ${stk} (${to?.accountName || ''})`);
+        lines.push(`   💬 Nội dung: ${generateTransferDescription(from, toName)}`);
       }
     });
   }
 
   lines.push(`----------------------------------`);
-  lines.push(`👉 Các bạn mở web để quét mã VietQR tự động điền số tiền nhé!`);
+  lines.push(`👉 Các bạn mở web để quét mã VietQR tự động điền số tiền và nội dung nhé!`);
 
   return lines.join('\n');
 }

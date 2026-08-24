@@ -8,7 +8,11 @@ import {
   calculateOptimalDebts,
   formatVND,
 } from '@/lib/settlement-algorithm';
-import { generateSettlementShareText, generateVietQRUrl } from '@/lib/vietqr';
+import {
+  generateSettlementShareText,
+  generateVietQRUrl,
+  generateTransferDescription,
+} from '@/lib/vietqr';
 import { toPng } from 'html-to-image';
 import confetti from 'canvas-confetti';
 import {
@@ -267,7 +271,10 @@ export const SettlementModal: React.FC<SettlementModalProps> = ({
                   const isPaid = isPaidMap[debt.id] || false;
                   const isExpanded = expandedDebtId === debt.id;
 
-                  const qrDescription = `TRA TIEN ${toMember?.name ? toMember.name.slice(0, 6) : ''} ${fromMember?.name ? fromMember.name.slice(0, 6) : ''}`.toUpperCase();
+                  const qrDescription = generateTransferDescription(
+                    fromMember?.name || 'BAN',
+                    toMember?.name || 'BAN'
+                  );
 
                   return (
                     <div
@@ -532,7 +539,10 @@ export const SettlementModal: React.FC<SettlementModalProps> = ({
       {selectedQRDebt && (() => {
         const toMember = memberMap.get(selectedQRDebt.toMemberId);
         const fromMember = memberMap.get(selectedQRDebt.fromMemberId);
-        const desc = `TRA TIEN ${toMember?.name ? toMember.name.slice(0, 6) : ''} ${fromMember?.name ? fromMember.name.slice(0, 6) : ''}`.toUpperCase();
+        const desc = generateTransferDescription(
+          fromMember?.name || 'BAN',
+          toMember?.name || 'BAN'
+        );
         const qrUrl = toMember
           ? generateVietQRUrl({
               bankBin: toMember.bankBin,

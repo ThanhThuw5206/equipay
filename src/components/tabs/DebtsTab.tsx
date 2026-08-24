@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { DebtPayment, Expense, Member, UserAccount } from '@/types';
 import { calculatePairwiseDebts, formatVND } from '@/lib/settlement-algorithm';
-import { generateVietQRUrl } from '@/lib/vietqr';
+import { generateVietQRUrl, generateTransferDescription } from '@/lib/vietqr';
 import {
   Scale,
   ArrowRight,
@@ -280,7 +280,10 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
       {selectedQRDebt && (() => {
         const toMember = memberMap.get(selectedQRDebt.toMemberId);
         const fromMember = memberMap.get(selectedQRDebt.fromMemberId);
-        const desc = `TRA TIEN ${toMember?.name ? toMember.name.slice(0, 6) : ''} ${fromMember?.name ? fromMember.name.slice(0, 6) : ''}`.toUpperCase();
+        const desc = generateTransferDescription(
+          fromMember?.name || 'BAN',
+          toMember?.name || 'BAN'
+        );
         const qrUrl = toMember
           ? generateVietQRUrl({
               bankBin: toMember.bankBin,
