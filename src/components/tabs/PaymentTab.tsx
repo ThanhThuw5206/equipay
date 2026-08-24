@@ -391,29 +391,29 @@ export const PaymentTab: React.FC<PaymentTabProps> = ({
 
         return (
           <div className="fixed inset-0 z-60 overflow-y-auto bg-black/85 backdrop-blur-md p-3 sm:p-6 flex flex-col items-center justify-center animate-fadeIn">
-            <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl text-slate-100 flex flex-col overflow-hidden my-auto">
+            <div className="relative w-full max-w-3xl lg:max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl text-slate-100 flex flex-col overflow-hidden my-auto">
               {/* Modal Header */}
-              <div className="px-5 py-3 border-b border-slate-800 flex items-center justify-between shrink-0 bg-slate-900/90 backdrop-blur-sm">
+              <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between shrink-0 bg-slate-900/90 backdrop-blur-sm">
                 <div className="text-left">
-                  <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-bold">
+                  <div className="flex items-center gap-2 text-xs sm:text-sm text-emerald-400 font-bold">
                     <span>⚡ VietQR Napas 247</span>
                     <span className="text-slate-600">•</span>
-                    <span className="text-slate-400 font-normal text-[10.5px]">Chuyển khoản tức thì</span>
+                    <span className="text-slate-400 font-normal text-xs">Chuyển khoản tức thì</span>
                   </div>
-                  <h3 className="font-bold text-sm sm:text-base text-slate-100 mt-0.5">
+                  <h3 className="font-bold text-base sm:text-lg text-slate-100 mt-1">
                     {fromMember?.name} ➔ Trả {toMember?.name}
                   </h3>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
                   <div className="text-right">
-                    <span className="text-[10px] text-slate-400 block">Số tiền:</span>
-                    <span className="text-sm sm:text-base font-black text-emerald-400 font-mono">
+                    <span className="text-xs text-slate-400 block">Số tiền thanh toán:</span>
+                    <span className="text-lg sm:text-2xl font-black text-emerald-400 font-mono">
                       {formatVND(selectedQRDebt.amount)}
                     </span>
                   </div>
                   <button
                     onClick={() => setSelectedQRDebt(null)}
-                    className="p-1.5 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition ml-1"
+                    className="p-2 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white transition ml-1"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -421,20 +421,20 @@ export const PaymentTab: React.FC<PaymentTabProps> = ({
               </div>
 
               {/* 2-Column Content Body */}
-              <div className="p-4 sm:p-5">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+              <div className="p-5 sm:p-7">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                   {/* Left Column: QR Code & Download */}
-                  <div className="flex flex-col items-center justify-center p-3 bg-slate-950 rounded-2xl border border-slate-800 space-y-2.5">
-                    <div className="p-2 bg-white rounded-xl shadow-md inline-block max-w-full">
+                  <div className="flex flex-col items-center justify-center p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-3.5 shadow-inner">
+                    <div className="p-2.5 bg-white rounded-2xl shadow-lg inline-block max-w-full">
                       {qrUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={qrUrl}
                           alt={`VietQR ${toMember?.name}`}
-                          className="w-40 sm:w-44 h-auto mx-auto rounded-md"
+                          className="w-52 sm:w-60 lg:w-64 h-auto mx-auto rounded-xl"
                         />
                       ) : (
-                        <div className="p-6 text-slate-800 text-xs">
+                        <div className="p-8 text-slate-800 text-xs sm:text-sm">
                           Chưa có thông tin số tài khoản
                         </div>
                       )}
@@ -446,30 +446,30 @@ export const PaymentTab: React.FC<PaymentTabProps> = ({
                         download={`VietQR_${toMember?.name || 'ChuyenTien'}.png`}
                         target="_blank"
                         rel="noreferrer"
-                        className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow transition active:scale-98"
+                        className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-slate-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition active:scale-98"
                       >
-                        <Download className="w-3.5 h-3.5" />
+                        <Download className="w-4 h-4" />
                         <span>Lưu ảnh QR vào máy</span>
                       </a>
                     )}
                   </div>
 
                   {/* Right Column: Bank Details, Copy & Bank Apps */}
-                  <div className="space-y-2.5 text-left">
+                  <div className="space-y-3.5 text-left">
                     {/* Bank Details Card with Copy */}
-                    <div className="text-xs bg-slate-950 rounded-2xl p-3 border border-slate-800 space-y-2">
+                    <div className="text-xs sm:text-sm bg-slate-950 rounded-2xl p-4 sm:p-5 border border-slate-800 space-y-3">
                       <div className="flex justify-between items-center text-slate-400">
                         <span>Người nhận:</span>
-                        <strong className="text-emerald-300 font-bold">{toMember?.name}</strong>
+                        <strong className="text-emerald-300 font-bold text-sm sm:text-base">{toMember?.name}</strong>
                       </div>
                       <div className="flex justify-between items-center text-slate-400">
                         <span>Ngân hàng:</span>
-                        <strong className="text-slate-200">{toMember?.bankName}</strong>
+                        <strong className="text-slate-100 font-medium text-xs sm:text-sm">{toMember?.bankName}</strong>
                       </div>
                       <div className="flex justify-between items-center text-slate-400">
-                        <span>STK:</span>
-                        <div className="flex items-center gap-1.5">
-                          <strong className="text-emerald-400 font-mono text-xs">{toMember?.accountNumber || 'Chưa điền'}</strong>
+                        <span>Số tài khoản:</span>
+                        <div className="flex items-center gap-2">
+                          <strong className="text-emerald-400 font-mono text-sm sm:text-base">{toMember?.accountNumber || 'Chưa điền'}</strong>
                           {toMember?.accountNumber && (
                             <button
                               onClick={() => {
@@ -477,7 +477,7 @@ export const PaymentTab: React.FC<PaymentTabProps> = ({
                                 setCopiedStkId('modal_stk');
                                 setTimeout(() => setCopiedStkId(null), 2000);
                               }}
-                              className="text-[10px] text-blue-400 hover:underline px-1.5 py-0.5 bg-blue-500/15 rounded"
+                              className="text-xs text-blue-400 hover:underline px-2 py-0.5 bg-blue-500/15 rounded-md font-semibold"
                             >
                               {copiedStkId === 'modal_stk' ? '✓ Đã chép' : 'Chép STK'}
                             </button>
@@ -486,15 +486,15 @@ export const PaymentTab: React.FC<PaymentTabProps> = ({
                       </div>
                       <div className="flex justify-between items-center text-slate-400">
                         <span>Số tiền:</span>
-                        <div className="flex items-center gap-1.5">
-                          <strong className="text-emerald-400 font-mono text-xs">{formatVND(selectedQRDebt.amount)}</strong>
+                        <div className="flex items-center gap-2">
+                          <strong className="text-emerald-400 font-mono text-sm sm:text-base">{formatVND(selectedQRDebt.amount)}</strong>
                           <button
                             onClick={() => {
                               navigator.clipboard.writeText(selectedQRDebt.amount.toString());
                               setCopiedStkId('modal_amount');
                               setTimeout(() => setCopiedStkId(null), 2000);
                             }}
-                            className="text-[10px] text-teal-400 hover:underline px-1.5 py-0.5 bg-teal-500/15 rounded"
+                            className="text-xs text-teal-400 hover:underline px-2 py-0.5 bg-teal-500/15 rounded-md font-semibold"
                           >
                             {copiedStkId === 'modal_amount' ? '✓ Đã chép' : 'Chép tiền'}
                           </button>
@@ -502,15 +502,15 @@ export const PaymentTab: React.FC<PaymentTabProps> = ({
                       </div>
                       <div className="flex justify-between items-center text-slate-400">
                         <span>Nội dung:</span>
-                        <div className="flex items-center gap-1.5">
-                          <strong className="text-slate-200 font-mono text-[11px] truncate max-w-[130px]">{desc}</strong>
+                        <div className="flex items-center gap-2">
+                          <strong className="text-slate-200 font-mono text-xs sm:text-sm truncate max-w-[160px]">{desc}</strong>
                           <button
                             onClick={() => {
                               navigator.clipboard.writeText(desc);
                               setCopiedStkId('modal_desc');
                               setTimeout(() => setCopiedStkId(null), 2000);
                             }}
-                            className="text-[10px] text-purple-400 hover:underline px-1.5 py-0.5 bg-purple-500/15 rounded"
+                            className="text-xs text-purple-400 hover:underline px-2 py-0.5 bg-purple-500/15 rounded-md font-semibold"
                           >
                             {copiedStkId === 'modal_desc' ? '✓ Đã chép' : 'Chép ND'}
                           </button>
@@ -519,16 +519,16 @@ export const PaymentTab: React.FC<PaymentTabProps> = ({
                     </div>
 
                     {/* Quick 1-Click Banking App Opener */}
-                    <div className="space-y-1 text-left bg-slate-950 p-2.5 rounded-2xl border border-slate-800">
+                    <div className="space-y-1.5 text-left bg-slate-950 p-3 sm:p-3.5 rounded-2xl border border-slate-800">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1">
+                        <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
                           <span>📱</span>
                           <span>Mở App Ngân hàng (1 chạm):</span>
                         </span>
-                        <span className="text-[9px] text-slate-400">Tự chép STK</span>
+                        <span className="text-[10px] text-slate-400">Tự chép STK</span>
                       </div>
 
-                      <div className="grid grid-cols-5 gap-1 pt-0.5">
+                      <div className="grid grid-cols-5 gap-1.5 pt-1">
                         {POPULAR_BANK_APPS.map((app) => (
                           <button
                             key={app.id}
@@ -539,10 +539,10 @@ export const PaymentTab: React.FC<PaymentTabProps> = ({
                               }
                               openBankingApp(app);
                             }}
-                            className="p-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-emerald-500/50 flex flex-col items-center justify-center gap-0.5 text-[9px] font-bold text-slate-200 transition active:scale-95 group"
+                            className="p-2 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/50 flex flex-col items-center justify-center gap-1 text-[10px] font-bold text-slate-200 transition active:scale-95 group shadow-sm"
                           >
-                            <span className="text-xs">{app.icon}</span>
-                            <span className="truncate max-w-[50px] group-hover:text-emerald-400 text-[8.5px]">
+                            <span className="text-sm sm:text-base">{app.icon}</span>
+                            <span className="truncate max-w-[60px] group-hover:text-emerald-400 text-[10px]">
                               {app.shortName}
                             </span>
                           </button>
@@ -551,7 +551,7 @@ export const PaymentTab: React.FC<PaymentTabProps> = ({
                     </div>
 
                     {/* Auto Pay Tip Box */}
-                    <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-left text-[11px] text-emerald-300">
+                    <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-left text-xs text-emerald-300">
                       <span>💡 <strong>Tự động điền 100%:</strong> Bấm &quot;Lưu ảnh QR&quot; ➔ Mở App Ngân Hàng ➔ Bấm &quot;Quét QR&quot; ➔ Chọn ảnh từ Thư viện.</span>
                     </div>
                   </div>
@@ -559,10 +559,10 @@ export const PaymentTab: React.FC<PaymentTabProps> = ({
               </div>
 
               {/* Modal Footer Actions */}
-              <div className="px-5 py-2.5 border-t border-slate-800 bg-slate-900 shrink-0 flex justify-end">
+              <div className="px-6 py-3 border-t border-slate-800 bg-slate-900 shrink-0 flex justify-end">
                 <button
                   onClick={() => setSelectedQRDebt(null)}
-                  className="py-1.5 px-5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition"
+                  className="py-2 px-6 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs sm:text-sm transition"
                 >
                   Đóng
                 </button>
