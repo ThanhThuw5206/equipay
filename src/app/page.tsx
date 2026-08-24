@@ -74,6 +74,9 @@ export default function Home() {
       if (res.state && res.state.members && res.state.members.length >= 4) {
         setState(res.state);
         saveState(res.state);
+      } else {
+        // Nếu trên Supabase chưa có dữ liệu (0 bản ghi), tự động đẩy dữ liệu hiện tại lên ngay!
+        pushCloudState(loaded);
       }
     });
 
@@ -109,6 +112,8 @@ export default function Home() {
       setIsAdminUnlocked(true);
     }
     showToast(`Xin chào, ${user.displayName}! 🎉`);
+    // Đảm bảo dữ liệu nhóm được đẩy lên Supabase
+    pushCloudState(state);
   };
 
   const handleLogout = () => {

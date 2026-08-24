@@ -80,17 +80,31 @@ export function getSupabaseClient(): SupabaseClient | null {
 
 /**
  * Tải dữ liệu mới nhất từ Supabase Cloud Database về web
- * (Ưu tiên gọi qua Server API Route /api/sync để tự động nhận biến Vercel Integration)
  */
-export async function fetchCloudState(): Promise<{ state: GroupState | null; error?: string }> {
-  // 1. Thử gọi qua Server Route /api/sync
+export async function fetchCloudState(): Promise<{ state: GroupState | null; error?: string; source?: string }> {
+  const config = getSupabaseConfig();
+
+  // 1. Thử gọi qua Server Route /api/sync kèm client headers
   if (typeof window !== 'undefined') {
     try {
-      const res = await fetch('/api/sync', { cache: 'no-store' });
+      const headers: Record<string, string> = {};
+      if (config.url && config.anonKey) {
+        headers['x-supabase-url'] = config.url;
+        headers['x-supabase-key'] = config.anonKey;
+      }
+
+      const res = await fetch('/api/sync', {
+        headers,
+        cache: 'no-store',
+      });
+
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.state && json.state.members) {
-          return { state: json.state as GroupState };
+          return { state: json.state as GroupState, source: json.source };
+        }
+        if (!json.success && json.error) {
+          return { state: null, error: json.error, source: json.source };
         }
       }
     } catch {
@@ -100,7 +114,7 @@ export async function fetchCloudState(): Promise<{ state: GroupState | null; err
 
   // 2. Client SDK Fallback
   const client = getSupabaseClient();
-  if (!client) return { state: null, error: 'Chưa kết nối Supabase Cloud' };
+  if (!client) return { state: null, error: 'Chưa cấu hình Supabase URL / Key' };
 
   try {
     const { data, error } = await client
@@ -115,10 +129,10 @@ export async function fetchCloudState(): Promise<{ state: GroupState | null; err
     }
 
     if (data && data.state_data) {
-      return { state: data.state_data as GroupState };
+      return { state: data.state_data as GroupState, source: 'client_sdk' };
     }
 
-    return { state: null, error: 'Chưa có bản ghi nào trên bảng equipay_group_data' };
+    return { state: null, error: 'Bảng equipay_group_data chưa có dữ liệu.' };
   } catch (err: any) {
     console.warn('Cloud fetch exception:', err);
     return { state: null, error: err.message || String(err) };
@@ -128,21 +142,33 @@ export async function fetchCloudState(): Promise<{ state: GroupState | null; err
 /**
  * Đẩy dữ liệu từ web lên Supabase Cloud Database để 3 người còn lại cùng thấy
  */
-export async function pushCloudState(state: GroupState): Promise<{ success: boolean; error?: string }> {
-  let serverSuccess = false;
+export async function pushCloudState(state: GroupState): Promise<{ success: boolean; error?: string; source?: string }> {
+  const config = getSupabaseConfig();
+  let serverError = '';
 
   // 1. Đẩy qua Server Route /api/sync
   if (typeof window !== 'undefined') {
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (config.url && config.anonKey) {
+        headers['x-supabase-url'] = config.url;
+        headers['x-supabase-key'] = config.anonKey;
+      }
+
       const res = await fetch('/api/sync', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ state }),
       });
+
       if (res.ok) {
         const json = await res.json();
         if (json.success) {
-          serverSuccess = true;
+          return { success: true, source: json.source };
+        } else {
+          serverError = json.error || 'Server sync error';
         }
       }
     } catch {
@@ -163,18 +189,16 @@ export async function pushCloudState(state: GroupState): Promise<{ success: bool
         });
 
       if (!error) {
-        return { success: true };
+        return { success: true, source: 'client_sdk' };
+      } else {
+        return { success: false, error: error.message };
       }
-    } catch {
-      // Ignore
+    } catch (err: any) {
+      return { success: false, error: err.message || String(err) };
     }
   }
 
-  if (serverSuccess) {
-    return { success: true };
-  }
-
-  return { success: false, error: 'Không thể kết nối lưu trữ Supabase' };
+  return { success: false, error: serverError || 'Không thể kết nối Supabase Cloud' };
 }
 
 /**
