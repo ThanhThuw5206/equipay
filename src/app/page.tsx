@@ -18,8 +18,8 @@ import { SettlementModal } from '@/components/SettlementModal';
 import { MemberSettingsModal } from '@/components/MemberSettingsModal';
 import { HistoryModal } from '@/components/HistoryModal';
 import { CloudSyncModal } from '@/components/CloudSyncModal';
-import { LoginModal } from '@/components/LoginModal';
 import { UserManagerModal } from '@/components/UserManagerModal';
+import { LoginScreen } from '@/components/LoginScreen';
 
 export default function Home() {
   const [state, setState] = useState<GroupState>(INITIAL_STATE);
@@ -34,7 +34,6 @@ export default function Home() {
   const [selectedMemberForEdit, setSelectedMemberForEdit] = useState<string | null>(null);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isSyncOpen, setIsSyncOpen] = useState(false);
-  const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isUserManagerOpen, setIsUserManagerOpen] = useState(false);
 
   // Admin permission
@@ -79,7 +78,7 @@ export default function Home() {
     setCurrentUserState(null);
     setCurrentUser(null);
     setIsAdminUnlocked(false);
-    showToast('Đã đăng xuất tài khoản.');
+    showToast('Đã đăng xuất tài khoản an toàn.');
   };
 
   const handleSaveUsers = (updatedUsers: UserAccount[]) => {
@@ -179,6 +178,16 @@ export default function Home() {
     );
   }
 
+  // BẮT BUỘC ĐĂNG NHẬP: Nếu chưa đăng nhập, hiển thị màn hình LoginScreen toàn trang
+  if (!currentUser) {
+    return (
+      <LoginScreen
+        users={state.users || []}
+        onLoginSuccess={handleLoginSuccess}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans">
       {/* Toast Notification */}
@@ -199,7 +208,7 @@ export default function Home() {
         onOpenHistory={() => setIsHistoryOpen(true)}
         onOpenSync={() => setIsSyncOpen(true)}
         onOpenUserManager={() => setIsUserManagerOpen(true)}
-        onOpenLogin={() => setIsLoginOpen(true)}
+        onOpenLogin={() => {}}
         currentUser={currentUser}
         onLogout={handleLogout}
         isAdminUnlocked={isAdmin}
@@ -236,13 +245,6 @@ export default function Home() {
       </footer>
 
       {/* Modals */}
-      <LoginModal
-        isOpen={isLoginOpen}
-        onClose={() => setIsLoginOpen(false)}
-        users={state.users || []}
-        onLoginSuccess={handleLoginSuccess}
-      />
-
       <UserManagerModal
         isOpen={isUserManagerOpen}
         onClose={() => setIsUserManagerOpen(false)}
@@ -270,7 +272,7 @@ export default function Home() {
         onArchivePeriod={handleArchivePeriod}
         isAdminUnlocked={isAdmin}
         onUnlockAdmin={() => {
-          setIsLoginOpen(true);
+          setIsAdminUnlocked(true);
         }}
       />
 
