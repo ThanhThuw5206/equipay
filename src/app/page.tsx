@@ -199,14 +199,6 @@ export default function Home() {
     setActiveTab('HOME');
   };
 
-  // Reset Demo
-  const handleResetDemo = () => {
-    if (confirm('Bạn có muốn khôi phục trạng thái ban đầu?')) {
-      updateState(INITIAL_STATE);
-      showToast('Đã khôi phục trạng thái ban đầu! 🔄');
-    }
-  };
-
   // Import Backup
   const handleImportState = (imported: GroupState) => {
     updateState(imported);
@@ -262,7 +254,6 @@ export default function Home() {
         onLogout={handleLogout}
         isAdminUnlocked={isAdmin}
         setIsAdminUnlocked={setIsAdminUnlocked}
-        onResetDemo={handleResetDemo}
       />
 
       {/* Main Container */}

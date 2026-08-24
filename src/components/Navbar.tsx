@@ -6,7 +6,6 @@ import {
   Users,
   History,
   ShieldCheck,
-  RotateCcw,
   Database,
   Lock,
   UserCog,
@@ -27,7 +26,6 @@ interface NavbarProps {
   onLogout: () => void;
   isAdminUnlocked: boolean;
   setIsAdminUnlocked: (unlocked: boolean) => void;
-  onResetDemo: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -42,7 +40,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   onLogout,
   isAdminUnlocked,
   setIsAdminUnlocked,
-  onResetDemo,
 }) => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(state.groupName);
@@ -215,17 +212,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Database className="w-4 h-4 text-teal-400" />
             </button>
-
-            {/* Reset - Chỉ Admin mới có quyền khôi phục */}
-            {isAdmin && (
-              <button
-                onClick={onResetDemo}
-                className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 hover:text-rose-400 transition"
-                title="Khôi phục trạng thái ban đầu"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </button>
-            )}
           </div>
         </div>
       </header>
