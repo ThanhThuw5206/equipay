@@ -1,6 +1,9 @@
-# 🚀 Ứng Dụng Chia Tiền Nhóm 4 Người & Kết Toán Nợ Tự Động Qua VietQR
-
-Ứng dụng web hiện đại (Mobile-First) dành riêng cho nhóm 4 người để quản lý chi tiêu chung, tự động tính toán bù trừ công nợ tối ưu (Min-Cash-Flow) khi Admin chốt sổ và sinh mã **VietQR Napas 247 động** điền sẵn chính xác số tiền, ngân hàng, số tài khoản và cú pháp chuyển khoản.
+<div align="center">
+  <img src="public/banner.jpg" alt="EquiPay Banner" width="100%" style="border-radius: 16px; margin-bottom: 16px;" />
+  <img src="public/logo.jpg" alt="EquiPay Logo" width="100" height="100" style="border-radius: 20px; box-shadow: 0 8px 30px rgba(16,185,129,0.3);" />
+  <h1>💎 EquiPay</h1>
+  <p><strong>Nền Tảng Quản Lý Chi Tiêu Nhóm 4 Người &amp; Kết Toán Nợ Tự Động Qua VietQR Napas 247</strong></p>
+</div>
 
 ---
 
