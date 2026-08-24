@@ -40,20 +40,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     }
   };
 
-  const handleQuickLoginAdmin = () => {
-    const adminUser = users.find((u) => u.role === 'ADMIN') || {
-      id: 'usr_admin',
-      username: 'admin',
-      password: 'admin@123',
-      displayName: 'Quản Trị Viên (Admin)',
-      role: 'ADMIN',
-      memberId: 'mem_1',
-      createdAt: new Date().toISOString(),
-    };
-    setUsername(adminUser.username);
-    setPassword(adminUser.password);
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-md animate-fadeIn overflow-y-auto">
       <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-sm w-full p-5 sm:p-6 shadow-2xl text-slate-100 my-auto">
@@ -125,18 +111,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-9 pr-3 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500"
               />
             </div>
-          </div>
-
-          {/* Quick Admin fill button */}
-          <div className="pt-1">
-            <button
-              type="button"
-              onClick={handleQuickLoginAdmin}
-              className="w-full py-1.5 px-2.5 rounded-lg bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 text-[11px] text-amber-400 font-medium flex items-center justify-center gap-1.5 transition"
-            >
-              <KeyRound className="w-3.5 h-3.5" />
-              <span>Điền nhanh tài khoản Admin mặc định (admin / admin@123)</span>
-            </button>
           </div>
 
           {/* Submit */}

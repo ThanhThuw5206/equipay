@@ -33,21 +33,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     }
   };
 
-  const handleQuickLoginAdmin = () => {
-    const adminUser = users.find((u) => u.role === 'ADMIN') || {
-      id: 'usr_admin',
-      username: 'admin',
-      password: 'admin@123',
-      displayName: 'Quản Trị Viên (Admin)',
-      role: 'ADMIN',
-      memberId: 'mem_1',
-      createdAt: new Date().toISOString(),
-    };
-    setUsername(adminUser.username);
-    setPassword(adminUser.password);
-    setError('');
-  };
-
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-slate-950 p-4 relative overflow-hidden font-sans">
       {/* Background glowing gradients */}
@@ -132,18 +117,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-3 pl-10 pr-4 text-sm text-slate-100 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition"
                 />
               </div>
-            </div>
-
-            {/* Quick Admin fill button */}
-            <div className="pt-1">
-              <button
-                type="button"
-                onClick={handleQuickLoginAdmin}
-                className="w-full py-2 px-3 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-slate-800/90 text-xs text-amber-400 font-semibold flex items-center justify-center gap-1.5 transition"
-              >
-                <KeyRound className="w-4 h-4" />
-                <span>Điền tài khoản Admin mặc định (admin / admin@123)</span>
-              </button>
             </div>
 
             {/* Submit Button */}
