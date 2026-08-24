@@ -10,6 +10,11 @@ import {
   setCurrentUser,
   INITIAL_STATE,
 } from '@/lib/storage';
+import {
+  fetchCloudState,
+  pushCloudState,
+  subscribeToCloudChanges,
+} from '@/lib/supabase';
 import { Navbar } from '@/components/Navbar';
 import { TabNavigation, AppTab } from '@/components/TabNavigation';
 import { HomeTab } from '@/components/tabs/HomeTab';
@@ -53,7 +58,7 @@ export default function Home() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Load initial state on mount
+  // Load initial state and attempt Cloud Database fetch on mount
   useEffect(() => {
     const loaded = getInitialState();
     setState(loaded);
@@ -63,11 +68,37 @@ export default function Home() {
       setIsAdminUnlocked(true);
     }
     setIsLoaded(true);
+
+    // Tự động tải dữ liệu từ Supabase Cloud DB nếu đã kết nối
+    fetchCloudState().then((res) => {
+      if (res.state && res.state.members && res.state.members.length >= 4) {
+        setState(res.state);
+        saveState(res.state);
+      }
+    });
+
+    // Lắng nghe thay đổi Realtime từ Supabase (khi người khác thêm chi tiêu)
+    const unsubscribe = subscribeToCloudChanges((remoteState) => {
+      if (remoteState && remoteState.members) {
+        setState(remoteState);
+        saveState(remoteState);
+        showToast('Dữ liệu vừa được cập nhật từ thiết bị khác! 🔄');
+      }
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   const updateState = (newState: GroupState) => {
     setState(newState);
     saveState(newState);
+
+    // Tự động đẩy dữ liệu lên Supabase Cloud DB ngầm
+    pushCloudState(newState).catch((err) =>
+      console.warn('Cloud sync background error:', err)
+    );
   };
 
   // Auth Handlers

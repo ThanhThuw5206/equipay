@@ -1,9 +1,16 @@
 -- ==============================================================================
--- BẢNG CƠ SỞ DỮ LIỆU SUPABASE CHO ỨNG DỤNG CHIA TIỀN 4 NGƯỜI & KẾT TOÁN VIETQR
+-- BẢNG CƠ SỞ DỮ LIỆU SUPABASE CHO EQUIPAY (CHIA TIỀN 4 NGƯỜI & VIETQR NAPAS 247)
 -- Hướng dẫn: Copy toàn bộ nội dung này và dán vào Supabase SQL Editor rồi bấm "RUN"
 -- ==============================================================================
 
--- 1. Bảng nhóm chi tiêu
+-- 1. Bảng đồng bộ trạng thái chính của toàn bộ nhóm (Chi tiêu, 4 thành viên, tài khoản, lịch sử)
+CREATE TABLE IF NOT EXISTS equipay_group_data (
+  id TEXT PRIMARY KEY DEFAULT 'default_group',
+  state_data JSONB NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 2. Bảng nhóm chi tiêu
 CREATE TABLE IF NOT EXISTS groups (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL DEFAULT 'Hội 4 Anh Em',
@@ -11,10 +18,10 @@ CREATE TABLE IF NOT EXISTS groups (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. Bảng thông tin 4 thành viên & Ngân hàng
+-- 3. Bảng thông tin 4 thành viên & Ngân hàng
 CREATE TABLE IF NOT EXISTS members (
   id TEXT PRIMARY KEY,
-  group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
+  group_id UUID,
   name TEXT NOT NULL,
   avatar TEXT NOT NULL DEFAULT '👤',
   color TEXT NOT NULL DEFAULT '#3B82F6',
@@ -26,10 +33,10 @@ CREATE TABLE IF NOT EXISTS members (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Bảng các khoản chi tiêu đang hoạt động (Chưa kết toán)
+-- 4. Bảng các khoản chi tiêu đang hoạt động (Chưa kết toán)
 CREATE TABLE IF NOT EXISTS expenses (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
+  id TEXT PRIMARY KEY,
+  group_id UUID,
   title TEXT NOT NULL,
   amount NUMERIC NOT NULL,
   payer_id TEXT NOT NULL,
@@ -40,10 +47,10 @@ CREATE TABLE IF NOT EXISTS expenses (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. Bảng lưu trữ lịch sử các kỳ đã kết toán
+-- 5. Bảng lưu trữ lịch sử các kỳ đã kết toán
 CREATE TABLE IF NOT EXISTS settlement_history (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
+  id TEXT PRIMARY KEY,
+  group_id UUID,
   title TEXT NOT NULL,
   start_date TIMESTAMPTZ,
   end_date TIMESTAMPTZ DEFAULT NOW(),
@@ -54,6 +61,37 @@ CREATE TABLE IF NOT EXISTS settlement_history (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Kích hoạt Realtime cho các bảng (để cập nhật trực tiếp trên điện thoại)
-ALTER PUBLICATION supabase_realtime ADD TABLE expenses;
-ALTER PUBLICATION supabase_realtime ADD TABLE settlement_history;
+-- ==============================================================================
+-- CẤU HÌNH QUYỀN ĐỌC / GHI (ROW LEVEL SECURITY POLICIES CHO PHÉP CLIENT GHI ĐƯỢC)
+-- ==============================================================================
+
+-- Tắt hoặc cấp quyền Full Access cho tất cả các bảng
+ALTER TABLE equipay_group_data ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all access on equipay_group_data" ON equipay_group_data;
+CREATE POLICY "Allow all access on equipay_group_data" ON equipay_group_data FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE groups ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all access on groups" ON groups;
+CREATE POLICY "Allow all access on groups" ON groups FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE members ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all access on members" ON members;
+CREATE POLICY "Allow all access on members" ON members FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE expenses ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all access on expenses" ON expenses;
+CREATE POLICY "Allow all access on expenses" ON expenses FOR ALL USING (true) WITH CHECK (true);
+
+ALTER TABLE settlement_history ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow all access on settlement_history" ON settlement_history;
+CREATE POLICY "Allow all access on settlement_history" ON settlement_history FOR ALL USING (true) WITH CHECK (true);
+
+-- Cấp quyền truy cập cho Role anon và authenticated
+GRANT ALL ON TABLE equipay_group_data TO anon, authenticated;
+GRANT ALL ON TABLE groups TO anon, authenticated;
+GRANT ALL ON TABLE members TO anon, authenticated;
+GRANT ALL ON TABLE expenses TO anon, authenticated;
+GRANT ALL ON TABLE settlement_history TO anon, authenticated;
+
+-- Kích hoạt Realtime cho tất cả các bảng
+ALTER PUBLICATION supabase_realtime ADD TABLE equipay_group_data;

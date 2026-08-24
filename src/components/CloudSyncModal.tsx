@@ -79,18 +79,18 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
     }
 
     try {
-      const success = await pushCloudState(state);
-      if (success) {
+      const result = await pushCloudState(state);
+      if (result.success) {
         setIsConnected(true);
         setStatusMsg({
           type: 'success',
-          text: 'Kết nối Supabase & Đồng bộ dữ liệu thành công! 🟢',
+          text: `Kết nối Supabase & Đã lưu ${state.expenses.length} khoản chi lên Cloud thành công! 🟢`,
         });
       } else {
         setIsConnected(false);
         setStatusMsg({
           type: 'error',
-          text: 'Không thể ghi vào bảng. Hãy đảm bảo bạn đã chạy file supabase_schema.sql trên Supabase SQL Editor!',
+          text: `Lỗi ghi Supabase: ${result.error || 'Vui lòng chạy lại file supabase_schema.sql trên Supabase SQL Editor!'}`,
         });
       }
     } catch (err: any) {
@@ -106,17 +106,18 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
     setStatusMsg(null);
 
     try {
-      const cloudData = await fetchCloudState();
-      if (cloudData && cloudData.members) {
-        onImportState(cloudData);
+      const result = await fetchCloudState();
+      if (result.state && result.state.members) {
+        onImportState(result.state);
+        setIsConnected(true);
         setStatusMsg({
           type: 'success',
-          text: 'Đã tải dữ liệu mới nhất từ Supabase Cloud về máy! 🎉',
+          text: `Đã tải ${result.state.expenses.length} khoản chi từ Supabase về máy thành công! 🎉`,
         });
       } else {
         setStatusMsg({
           type: 'error',
-          text: 'Chưa có dữ liệu trên Supabase hoặc chưa tạo bảng equipay_group_data!',
+          text: `Chưa thể tải dữ liệu: ${result.error || 'Chưa có dữ liệu nào trên Supabase!'}`,
         });
       }
     } catch (err: any) {

@@ -19,7 +19,6 @@ export function getSupabaseConfig(): SupabaseConfig {
       if (queryUrl && queryKey) {
         const magicConfig = { url: queryUrl.trim(), anonKey: queryKey.trim() };
         localStorage.setItem(SUPABASE_CONFIG_KEY, JSON.stringify(magicConfig));
-        // Xóa query param khỏi URL cho đẹp
         window.history.replaceState({}, document.title, window.location.pathname);
         return magicConfig;
       }
@@ -48,7 +47,7 @@ export function saveSupabaseConfig(config: SupabaseConfig): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(SUPABASE_CONFIG_KEY, JSON.stringify(config));
-    cachedClient = null; // reset client
+    cachedClient = null; // reset client cache
   } catch {
     // Ignore
   }
@@ -67,7 +66,9 @@ export function getSupabaseClient(): SupabaseClient | null {
   }
 
   try {
-    cachedClient = createClient(url, anonKey);
+    cachedClient = createClient(url, anonKey, {
+      auth: { persistSession: false },
+    });
     lastUrl = url;
     lastKey = anonKey;
     return cachedClient;
@@ -80,44 +81,43 @@ export function getSupabaseClient(): SupabaseClient | null {
 /**
  * Tải dữ liệu mới nhất từ Supabase Cloud Database về web
  */
-export async function fetchCloudState(): Promise<GroupState | null> {
+export async function fetchCloudState(): Promise<{ state: GroupState | null; error?: string }> {
   const client = getSupabaseClient();
-  if (!client) return null;
+  if (!client) return { state: null, error: 'Chưa cấu hình Supabase URL / Key' };
 
   try {
+    // 1. Thử lấy từ bảng equipay_group_data
     const { data, error } = await client
       .from('equipay_group_data')
       .select('state_data')
       .eq('id', 'default_group')
-      .single();
+      .maybeSingle();
 
     if (error) {
-      if (error.code === 'PGRST116') {
-        // Chưa có bản ghi default_group
-        return null;
-      }
-      console.warn('Supabase fetch error:', error.message);
-      return null;
+      console.warn('Supabase fetch equipay_group_data error:', error.message);
+      return { state: null, error: error.message };
     }
 
     if (data && data.state_data) {
-      return data.state_data as GroupState;
+      return { state: data.state_data as GroupState };
     }
-  } catch (err) {
-    console.warn('Cloud fetch error:', err);
-  }
 
-  return null;
+    return { state: null, error: 'Chưa có bản ghi nào trên bảng equipay_group_data' };
+  } catch (err: any) {
+    console.warn('Cloud fetch exception:', err);
+    return { state: null, error: err.message || String(err) };
+  }
 }
 
 /**
  * Đẩy dữ liệu từ web lên Supabase Cloud Database để 3 người còn lại cùng thấy
  */
-export async function pushCloudState(state: GroupState): Promise<boolean> {
+export async function pushCloudState(state: GroupState): Promise<{ success: boolean; error?: string }> {
   const client = getSupabaseClient();
-  if (!client) return false;
+  if (!client) return { success: false, error: 'Chưa cấu hình Supabase URL / Key' };
 
   try {
+    // 1. Upsert vào bảng equipay_group_data
     const { error } = await client
       .from('equipay_group_data')
       .upsert({
@@ -128,12 +128,33 @@ export async function pushCloudState(state: GroupState): Promise<boolean> {
 
     if (error) {
       console.error('Supabase push error:', error.message);
-      return false;
+      return { success: false, error: error.message };
     }
-    return true;
-  } catch (err) {
-    console.error('Cloud push error:', err);
-    return false;
+
+    // 2. Đồng bộ phụ vào bảng members và expenses nếu bảng tồn tại
+    try {
+      if (state.members && state.members.length > 0) {
+        const memberRows = state.members.map((m) => ({
+          id: m.id,
+          name: m.name,
+          avatar: m.avatar,
+          color: m.color,
+          bank_bin: m.bankBin,
+          bank_name: m.bankName,
+          account_number: m.accountNumber,
+          account_name: m.accountName,
+          is_admin: m.isAdmin || false,
+        }));
+        await client.from('members').upsert(memberRows);
+      }
+    } catch {
+      // Bỏ qua lỗi phụ
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Cloud push exception:', err);
+    return { success: false, error: err.message || String(err) };
   }
 }
 
