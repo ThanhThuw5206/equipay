@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { Member, UserAccount, UserRole } from '@/types';
-import { X, UserPlus, Shield, User, Trash2, Key, Check, AlertCircle } from 'lucide-react';
+import { X, UserPlus, Shield, User, Trash2, Key, Check, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 interface UserManagerModalProps {
   isOpen: boolean;
@@ -24,6 +24,8 @@ export const UserManagerModal: React.FC<UserManagerModalProps> = ({
   const [showAddForm, setShowAddForm] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showCreatePassword, setShowCreatePassword] = useState(false);
+  const [revealedPasswordId, setRevealedPasswordId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState('');
   const [role, setRole] = useState<UserRole>('MEMBER');
   const [memberId, setMemberId] = useState<string>(members[0]?.id || 'mem_1');
@@ -177,13 +179,27 @@ export const UserManagerModal: React.FC<UserManagerModalProps> = ({
                   <label className="block text-[11px] font-semibold text-slate-400 mb-1">
                     Mật khẩu *
                   </label>
-                  <input
-                    type="text"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="VD: 123456"
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showCreatePassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="VD: 123456"
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 pl-3 pr-8 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCreatePassword(!showCreatePassword)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition"
+                      tabIndex={-1}
+                    >
+                      {showCreatePassword ? (
+                        <EyeOff className="w-3.5 h-3.5" />
+                      ) : (
+                        <Eye className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -207,15 +223,15 @@ export const UserManagerModal: React.FC<UserManagerModalProps> = ({
 
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-400 mb-1">
-                    Vai trò (Role)
+                    Vai trò (Quyền hạn)
                   </label>
                   <select
                     value={role}
                     onChange={(e) => setRole(e.target.value as UserRole)}
                     className="w-full bg-slate-900 border border-slate-800 rounded-xl py-2 px-3 text-xs text-slate-200 focus:outline-none"
                   >
-                    <option value="MEMBER">Thành viên thông thường</option>
-                    <option value="ADMIN">Quản Trị Viên (Toàn quyền)</option>
+                    <option value="MEMBER">Thành viên (Nhập chi tiêu)</option>
+                    <option value="ADMIN">Quản trị viên (Chốt nợ, Cài đặt)</option>
                   </select>
                 </div>
               </div>
@@ -233,42 +249,44 @@ export const UserManagerModal: React.FC<UserManagerModalProps> = ({
                 />
               </div>
 
-              <div className="pt-2 flex justify-end gap-2">
+              <div className="flex justify-end gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => setShowAddForm(false)}
-                  className="py-1.5 px-3 rounded-xl bg-slate-800 text-slate-300 text-xs font-medium"
+                  className="py-1.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="py-1.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs shadow"
+                  className="py-1.5 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs transition flex items-center gap-1.5"
                 >
-                  Xác nhận tạo
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Tạo tài khoản</span>
                 </button>
               </div>
             </form>
           )}
 
-          {/* List of Existing Accounts */}
-          <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+          {/* User List */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
               Danh sách tài khoản ({users.length})
-            </h3>
+            </h4>
 
             <div className="space-y-2">
               {users.map((u) => {
                 const assignedMember = members.find((m) => m.id === u.memberId);
-                const isMainAdmin = u.username === 'admin';
+                const isMainAdmin = u.username.toLowerCase() === 'admin';
+                const isRevealed = revealedPasswordId === u.id;
 
                 return (
                   <div
                     key={u.id}
-                    className="p-3 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-3 text-xs"
+                    className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800/80 flex items-center justify-between gap-3 text-xs hover:border-slate-700/80 transition"
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-sm shrink-0">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-base shrink-0">
                         {assignedMember?.avatar || '👤'}
                       </div>
                       <div className="min-w-0">
@@ -286,9 +304,25 @@ export const UserManagerModal: React.FC<UserManagerModalProps> = ({
                             </span>
                           )}
                         </div>
-                        <p className="text-[11px] text-slate-400 font-mono">
-                          user: <strong className="text-emerald-400">{u.username}</strong> | pass: <strong className="text-slate-300">{u.password}</strong>
-                        </p>
+                        <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono mt-0.5">
+                          <span>user: <strong className="text-emerald-400">{u.username}</strong></span>
+                          <span>|</span>
+                          <span className="flex items-center gap-1">
+                            pass: <strong className="text-slate-300 tracking-wider">{isRevealed ? u.password : '••••••••'}</strong>
+                            <button
+                              type="button"
+                              onClick={() => setRevealedPasswordId(isRevealed ? null : u.id)}
+                              className="p-0.5 text-slate-500 hover:text-slate-300 transition"
+                              title={isRevealed ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                            >
+                              {isRevealed ? (
+                                <EyeOff className="w-3 h-3" />
+                              ) : (
+                                <Eye className="w-3 h-3" />
+                              )}
+                            </button>
+                          </span>
+                        </div>
                       </div>
                     </div>
 
