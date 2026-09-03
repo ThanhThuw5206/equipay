@@ -29,6 +29,9 @@ function getSupabaseClientFromReq(req?: NextRequest): { client: SupabaseClient |
     }
   }
 
+  url = url.trim().replace(/\/+$/, '').replace(/\/rest\/v1\/?$/, '');
+  key = key.trim();
+
   if (!url || !key) {
     return { client: null, source: 'none' };
   }

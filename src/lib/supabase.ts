@@ -58,7 +58,10 @@ let lastUrl = '';
 let lastKey = '';
 
 export function getSupabaseClient(): SupabaseClient | null {
-  const { url, anonKey } = getSupabaseConfig();
+  const config = getSupabaseConfig();
+  const url = (config.url || '').trim().replace(/\/+$/, '').replace(/\/rest\/v1\/?$/, '');
+  const anonKey = (config.anonKey || '').trim();
+
   if (!url || !anonKey) return null;
 
   if (cachedClient && lastUrl === url && lastKey === anonKey) {
