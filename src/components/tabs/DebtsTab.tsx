@@ -34,16 +34,30 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
   currentUser,
   onNavigateToPayment,
 }) => {
-  // Mặc định hiển thị TẤT CẢ công nợ của cả 4 người để không bị ẩn lệnh
-  const [filterMemberId, setFilterMemberId] = useState<string>('ALL');
+  const currentMemberId = currentUser?.memberId;
+  const memberMap = new Map(members.map((m) => [m.id, m]));
+  const currentMember = currentMemberId ? memberMap.get(currentMemberId) : null;
+
+  // Mặc định: Chỉ hiện các khoản tài khoản đang đăng nhập CẦN TRẢ
+  const [filterMemberId, setFilterMemberId] = useState<string>(
+    currentMemberId ? 'MY_DEBTS' : 'ALL'
+  );
   const [expandedDebtId, setExpandedDebtId] = useState<string | null>(null);
   const [selectedQRDebt, setSelectedQRDebt] = useState<DebtPayment | null>(null);
   const [copiedStkId, setCopiedStkId] = useState<string | null>(null);
 
   const debts = calculatePairwiseDebts(members, expenses);
-  const memberMap = new Map(members.map((m) => [m.id, m]));
+
+  // Các khoản tài khoản này cần trả
+  const myDebtsToPay = currentMemberId
+    ? debts.filter((d) => d.fromMemberId === currentMemberId)
+    : [];
+  const myTotalDebtAmount = myDebtsToPay.reduce((sum, d) => sum + d.amount, 0);
 
   const filteredDebts = debts.filter((d) => {
+    if (filterMemberId === 'MY_DEBTS') {
+      return currentMemberId ? d.fromMemberId === currentMemberId : true;
+    }
     if (filterMemberId === 'ALL') return true;
     return d.fromMemberId === filterMemberId || d.toMemberId === filterMemberId;
   });
@@ -61,46 +75,134 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
         <div>
           <h2 className="text-base sm:text-lg font-black flex items-center gap-2">
             <Scale className="w-5 h-5 text-amber-400" />
-            <span>Công Nợ &amp; Lệnh Trả Tiền 1-1 ({debts.length} giao dịch)</span>
+            <span>Công Nợ &amp; Lệnh Trả Tiền 1-1</span>
           </h2>
           <p className="text-xs text-slate-400">
-            Bù trừ chính xác giữa người chi và người thụ hưởng • Kèm mã QR quét trả ngay
+            {filterMemberId === 'MY_DEBTS' && currentMember
+              ? `Chỉ hiển thị các khoản nợ bạn (${currentMember.name}) cần chuyển trả`
+              : 'Bù trừ chính xác giữa người chi và người thụ hưởng • Kèm mã QR quét trả ngay'}
           </p>
         </div>
 
-        {/* Filter Dropdown */}
-        <div className="flex items-center gap-2">
-          <Filter className="w-3.5 h-3.5 text-slate-500" />
-          <select
-            value={filterMemberId}
-            onChange={(e) => setFilterMemberId(e.target.value)}
-            className="bg-slate-950 border border-slate-800 rounded-xl py-1.5 px-3 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+        {/* Quick Filter Buttons & Select */}
+        <div className="flex flex-wrap items-center gap-2">
+          {currentMemberId && (
+            <button
+              onClick={() => setFilterMemberId('MY_DEBTS')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+                filterMemberId === 'MY_DEBTS'
+                  ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
+                  : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+              }`}
+            >
+              <span>⚡ Khoản tôi cần trả</span>
+              {myDebtsToPay.length > 0 && (
+                <span
+                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${
+                    filterMemberId === 'MY_DEBTS'
+                      ? 'bg-slate-950 text-emerald-300'
+                      : 'bg-emerald-500/20 text-emerald-400'
+                  }`}
+                >
+                  {myDebtsToPay.length}
+                </span>
+              )}
+            </button>
+          )}
+
+          <button
+            onClick={() => setFilterMemberId('ALL')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+              filterMemberId === 'ALL'
+                ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
+                : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+            }`}
           >
-            <option value="ALL">Hiển thị tất cả ({debts.length} lệnh)</option>
-            {members.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.avatar} {m.name}
-              </option>
-            ))}
-          </select>
+            <span>👥 Cả nhóm</span>
+            <span className="text-[10px] opacity-75">({debts.length})</span>
+          </button>
+
+          <div className="flex items-center gap-1.5">
+            <Filter className="w-3.5 h-3.5 text-slate-500" />
+            <select
+              value={filterMemberId}
+              onChange={(e) => setFilterMemberId(e.target.value)}
+              className="bg-slate-950 border border-slate-800 rounded-xl py-1.5 px-2.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            >
+              {currentMemberId && (
+                <option value="MY_DEBTS">⚡ Khoản tôi cần trả ({myDebtsToPay.length} lệnh)</option>
+              )}
+              <option value="ALL">Hiển thị tất cả ({debts.length} lệnh)</option>
+              {members.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.avatar} {m.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
+
+      {/* Banner thông tin nợ riêng của tài khoản đang đăng nhập */}
+      {filterMemberId === 'MY_DEBTS' && currentMember && (
+        <div className="bg-gradient-to-r from-emerald-950/40 via-slate-900/80 to-slate-900/60 border border-emerald-500/30 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-2xl shrink-0">
+              {currentMember.avatar}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-slate-400">Tài khoản đang đăng nhập:</p>
+                <span className="font-bold text-slate-100 text-xs sm:text-sm">{currentMember.name}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 font-bold">Người trả tiền</span>
+              </div>
+              <p className="text-base sm:text-lg font-black text-amber-400 font-mono mt-0.5">
+                {myDebtsToPay.length > 0
+                  ? `Bạn cần chuyển trả: ${formatVND(myTotalDebtAmount)} (${myDebtsToPay.length} lệnh)`
+                  : '🎉 Bạn không nợ bất kỳ ai khoản nào!'}
+              </p>
+            </div>
+          </div>
+          {debts.length > myDebtsToPay.length && (
+            <button
+              onClick={() => setFilterMemberId('ALL')}
+              className="text-xs text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 px-3.5 py-2 rounded-xl border border-slate-700 transition self-start sm:self-auto shrink-0 flex items-center gap-1.5"
+            >
+              <span>Xem lệnh của cả nhóm ({debts.length})</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Debts List */}
       <div className="space-y-3">
         {filteredDebts.length === 0 ? (
-          <div className="py-12 text-center text-slate-500 bg-slate-900/40 rounded-3xl border border-slate-800/80">
-            <p className="text-2xl mb-1">🎉</p>
-            <p className="text-sm font-bold text-slate-300">
-              {expenses.length === 0
+          <div className="py-12 text-center text-slate-500 bg-slate-900/40 rounded-3xl border border-slate-800/80 p-6">
+            <p className="text-3xl mb-2">🎉</p>
+            <p className="text-sm font-bold text-slate-200">
+              {filterMemberId === 'MY_DEBTS'
+                ? 'Tuyệt vời! Bạn không có khoản nợ nào cần chuyển trả.'
+                : expenses.length === 0
                 ? 'Chưa có khoản chi nào được thêm vào hệ thống.'
                 : 'Không có khoản nợ nào cần thanh toán!'}
             </p>
             <p className="text-xs text-slate-500 mt-1">
-              {expenses.length === 0
+              {filterMemberId === 'MY_DEBTS'
+                ? 'Bạn đã thanh toán hết hoặc các thành viên khác đang nợ tiền bạn.'
+                : expenses.length === 0
                 ? 'Hãy vào tab "Trang chủ" hoặc "Chi tiết" để thêm khoản chi đầu tiên.'
                 : 'Tất cả các thành viên đang ở trạng thái cân bằng chi tiêu.'}
             </p>
+            {filterMemberId === 'MY_DEBTS' && debts.length > 0 && (
+              <button
+                onClick={() => setFilterMemberId('ALL')}
+                className="mt-3.5 inline-flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 bg-emerald-950/40 hover:bg-emerald-950/70 border border-emerald-500/30 px-3.5 py-1.5 rounded-xl transition font-bold"
+              >
+                <span>Xem lệnh của cả nhóm ({debts.length})</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         ) : (
           filteredDebts.map((debt) => {
