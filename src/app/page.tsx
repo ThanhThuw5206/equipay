@@ -89,8 +89,28 @@ export default function Home() {
       }
     });
 
+    // Tự động kiểm tra và tải lại dữ liệu mới nhất khi người dùng mở lại tab hoặc có mạng
+    const refreshCloud = () => {
+      fetchCloudState().then((res) => {
+        if (res.state && res.state.members && res.state.members.length >= 4) {
+          setState(res.state);
+          saveState(res.state);
+        }
+      });
+    };
+
+    window.addEventListener('focus', refreshCloud);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') refreshCloud();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('online', refreshCloud);
+
     return () => {
       if (unsubscribe) unsubscribe();
+      window.removeEventListener('focus', refreshCloud);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('online', refreshCloud);
     };
   }, []);
 
