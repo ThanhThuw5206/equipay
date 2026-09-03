@@ -72,7 +72,7 @@ export const DEFAULT_MEMBERS: Member[] = [
 export const DEFAULT_ADMIN_USER: UserAccount = {
   id: 'usr_admin',
   username: 'admin',
-  password: 'admin@123',
+  password: '1b377bc8b7bc814b111518a1ddd98420bf3a9138dee053723b7b7d23dff1fd06', // SHA-256 hash của 'admin@123'
   displayName: 'Quản Trị Viên (Admin)',
   role: 'ADMIN',
   memberId: 'mem_1',

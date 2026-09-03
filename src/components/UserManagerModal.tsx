@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { Member, UserAccount, UserRole } from '@/types';
-import { X, UserPlus, Shield, User, Trash2, Key, Check, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { X, UserPlus, Shield, User, Trash2, Key, Check, AlertCircle, Eye, EyeOff, KeyRound } from 'lucide-react';
+import { hashPassword } from '@/lib/auth-crypto';
 
 interface UserManagerModalProps {
   isOpen: boolean;
@@ -25,16 +26,19 @@ export const UserManagerModal: React.FC<UserManagerModalProps> = ({
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showCreatePassword, setShowCreatePassword] = useState(false);
-  const [revealedPasswordId, setRevealedPasswordId] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState('');
   const [role, setRole] = useState<UserRole>('MEMBER');
   const [memberId, setMemberId] = useState<string>(members[0]?.id || 'mem_1');
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
+  // Đổi mật khẩu
+  const [editingPasswordUserId, setEditingPasswordUserId] = useState<string | null>(null);
+  const [newPasswordInput, setNewPasswordInput] = useState('');
+
   if (!isOpen) return null;
 
-  const handleCreateUser = (e: React.FormEvent) => {
+  const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -55,10 +59,13 @@ export const UserManagerModal: React.FC<UserManagerModalProps> = ({
     const assignedMember = members.find((m) => m.id === memberId);
     const finalDisplayName = displayName.trim() || assignedMember?.name || cleanUsername;
 
+    // BĂM MẬT KHẨU SHA-256 SALTED TRƯỚC KHI LƯU VÀO DATABASE
+    const hashedPassword = await hashPassword(password);
+
     const newUser: UserAccount = {
       id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       username: cleanUsername,
-      password,
+      password: hashedPassword,
       displayName: finalDisplayName,
       role,
       memberId,
@@ -73,7 +80,23 @@ export const UserManagerModal: React.FC<UserManagerModalProps> = ({
     setPassword('');
     setDisplayName('');
     setShowAddForm(false);
-    setSuccessMsg(`Đã tạo tài khoản "${cleanUsername}" thành công! 🎉`);
+    setSuccessMsg(`Đã tạo tài khoản "${cleanUsername}" với mật khẩu được băm SHA-256 an toàn! 🔒`);
+    setTimeout(() => setSuccessMsg(''), 3500);
+  };
+
+  const handleSaveNewPassword = async (userId: string) => {
+    if (!newPasswordInput || newPasswordInput.length < 4) {
+      alert('Mật khẩu mới phải có ít nhất 4 ký tự!');
+      return;
+    }
+    const hashedPassword = await hashPassword(newPasswordInput);
+    const updated = users.map((u) =>
+      u.id === userId ? { ...u, password: hashedPassword } : u
+    );
+    onSaveUsers(updated);
+    setEditingPasswordUserId(null);
+    setNewPasswordInput('');
+    setSuccessMsg('Đã băm và lưu mật khẩu mới an toàn lên Database! 🔒');
     setTimeout(() => setSuccessMsg(''), 3000);
   };
 
@@ -278,62 +301,98 @@ export const UserManagerModal: React.FC<UserManagerModalProps> = ({
               {users.map((u) => {
                 const assignedMember = members.find((m) => m.id === u.memberId);
                 const isMainAdmin = u.username.toLowerCase() === 'admin';
-                const isRevealed = revealedPasswordId === u.id;
+                const isEditingPassword = editingPasswordUserId === u.id;
 
                 return (
                   <div
                     key={u.id}
-                    className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800/80 flex items-center justify-between gap-3 text-xs hover:border-slate-700/80 transition"
+                    className="p-3 rounded-2xl bg-slate-900/80 border border-slate-800/80 hover:border-slate-700/80 transition"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-base shrink-0">
-                        {assignedMember?.avatar || '👤'}
+                    <div className="flex items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-base shrink-0">
+                          {assignedMember?.avatar || '👤'}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-slate-200 truncate">
+                              {u.displayName || u.username}
+                            </span>
+                            {u.role === 'ADMIN' ? (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-semibold shrink-0">
+                                Admin
+                              </span>
+                            ) : (
+                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 font-semibold shrink-0">
+                                Thành viên
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400 font-mono mt-0.5">
+                            <span>user: <strong className="text-emerald-400">{u.username}</strong></span>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              pass: <span className="text-slate-400 tracking-wider">••••••••</span>
+                              <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 font-sans font-medium">
+                                🔒 Đã băm SHA-256
+                              </span>
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-slate-200 truncate">
-                            {u.displayName || u.username}
-                          </span>
-                          {u.role === 'ADMIN' ? (
-                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 font-semibold shrink-0">
-                              Admin
-                            </span>
-                          ) : (
-                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-blue-500/20 text-blue-300 font-semibold shrink-0">
-                              Thành viên
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono mt-0.5">
-                          <span>user: <strong className="text-emerald-400">{u.username}</strong></span>
-                          <span>|</span>
-                          <span className="flex items-center gap-1">
-                            pass: <strong className="text-slate-300 tracking-wider">{isRevealed ? u.password : '••••••••'}</strong>
-                            <button
-                              type="button"
-                              onClick={() => setRevealedPasswordId(isRevealed ? null : u.id)}
-                              className="p-0.5 text-slate-500 hover:text-slate-300 transition"
-                              title={isRevealed ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                            >
-                              {isRevealed ? (
-                                <EyeOff className="w-3 h-3" />
-                              ) : (
-                                <Eye className="w-3 h-3" />
-                              )}
-                            </button>
-                          </span>
-                        </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => {
+                            setEditingPasswordUserId(isEditingPassword ? null : u.id);
+                            setNewPasswordInput('');
+                          }}
+                          className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-emerald-400 transition"
+                          title="Đặt lại mật khẩu mới"
+                        >
+                          <KeyRound className="w-3.5 h-3.5" />
+                        </button>
+
+                        {!isMainAdmin && (
+                          <button
+                            onClick={() => handleDeleteUser(u.id)}
+                            className="p-1.5 rounded-lg hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 transition"
+                            title="Xóa tài khoản"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
 
-                    {!isMainAdmin && (
-                      <button
-                        onClick={() => handleDeleteUser(u.id)}
-                        className="p-1.5 rounded-lg hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 transition shrink-0"
-                        title="Xóa tài khoản"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                    {/* Inline Form đổi mật khẩu */}
+                    {isEditingPassword && (
+                      <div className="mt-2.5 pt-2.5 border-t border-slate-800/80 flex items-center gap-2 animate-fadeIn">
+                        <input
+                          type="password"
+                          placeholder="Nhập mật khẩu mới (tối thiểu 4 ký tự)..."
+                          value={newPasswordInput}
+                          onChange={(e) => setNewPasswordInput(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleSaveNewPassword(u.id)}
+                          autoFocus
+                          className="flex-1 bg-slate-950 border border-slate-700 rounded-xl py-1.5 px-3 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
+                        />
+                        <button
+                          onClick={() => handleSaveNewPassword(u.id)}
+                          className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs transition shrink-0"
+                        >
+                          Lưu hash mới
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingPasswordUserId(null);
+                            setNewPasswordInput('');
+                          }}
+                          className="px-2 py-1.5 text-xs text-slate-400 hover:text-slate-200 shrink-0"
+                        >
+                          Hủy
+                        </button>
+                      </div>
                     )}
                   </div>
                 );

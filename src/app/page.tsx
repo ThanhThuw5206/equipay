@@ -29,6 +29,7 @@ import { CloudSyncModal } from '@/components/CloudSyncModal';
 import { UserManagerModal } from '@/components/UserManagerModal';
 import { LoginScreen } from '@/components/LoginScreen';
 import { calculatePairwiseDebts } from '@/lib/settlement-algorithm';
+import { hashPassword, isPasswordHashed } from '@/lib/auth-crypto';
 
 export default function Home() {
   const [state, setState] = useState<GroupState>(INITIAL_STATE);
@@ -58,6 +59,30 @@ export default function Home() {
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  // Tự động kiểm tra và nâng cấp băm mật khẩu SHA-256 cho các tài khoản cũ (tránh lưu text)
+  const ensureHashedUsers = async (targetState: GroupState): Promise<GroupState> => {
+    if (!targetState.users || targetState.users.length === 0) return targetState;
+    let hasUnhashed = false;
+    const upgradedUsers = await Promise.all(
+      targetState.users.map(async (u) => {
+        if (!isPasswordHashed(u.password)) {
+          hasUnhashed = true;
+          const hashed = await hashPassword(u.password);
+          return { ...u, password: hashed };
+        }
+        return u;
+      })
+    );
+    if (hasUnhashed) {
+      const nextState = { ...targetState, users: upgradedUsers };
+      setState(nextState);
+      saveState(nextState);
+      pushCloudState(nextState);
+      return nextState;
+    }
+    return targetState;
+  };
+
   // Load initial state and attempt Cloud Database fetch on mount
   useEffect(() => {
     const loaded = getInitialState();
@@ -69,11 +94,15 @@ export default function Home() {
     }
     setIsLoaded(true);
 
+    // Băm mật khẩu tài khoản local nếu còn lưu text
+    ensureHashedUsers(loaded);
+
     // Tự động tải dữ liệu từ Supabase Cloud DB nếu đã kết nối
     fetchCloudState().then((res) => {
       if (res.state && res.state.members && res.state.members.length >= 4) {
         setState(res.state);
         saveState(res.state);
+        ensureHashedUsers(res.state);
       } else {
         // Nếu trên Supabase chưa có dữ liệu (0 bản ghi), tự động đẩy dữ liệu hiện tại lên ngay!
         pushCloudState(loaded);

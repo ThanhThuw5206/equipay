@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { UserAccount } from '@/types';
 import { X, LogIn, Lock, User, ShieldCheck, AlertCircle, KeyRound } from 'lucide-react';
+import { verifyPassword } from '@/lib/auth-crypto';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -23,14 +24,21 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
     const trimmedUser = username.trim().toLowerCase();
-    const foundUser = users.find(
-      (u) => u.username.toLowerCase() === trimmedUser && u.password === password
-    );
+    let foundUser: UserAccount | null = null;
+    for (const u of users) {
+      if (u.username.toLowerCase() === trimmedUser) {
+        const isMatched = await verifyPassword(password, u.password);
+        if (isMatched) {
+          foundUser = u;
+          break;
+        }
+      }
+    }
 
     if (foundUser) {
       onLoginSuccess(foundUser);

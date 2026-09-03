@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { UserAccount } from '@/types';
 import { LogIn, Lock, User, ShieldCheck, AlertCircle, KeyRound, Sparkles } from 'lucide-react';
+import { verifyPassword, isPasswordHashed, hashPassword } from '@/lib/auth-crypto';
 
 interface LoginScreenProps {
   users: UserAccount[];
@@ -26,9 +27,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     const trimmedUser = username.trim().toLowerCase();
 
     // 1. Kiểm tra trong danh sách người dùng hiện tại
-    let foundUser = users.find(
-      (u) => u.username.toLowerCase() === trimmedUser && u.password === password
-    );
+    let foundUser: UserAccount | null = null;
+    for (const u of users) {
+      if (u.username.toLowerCase() === trimmedUser) {
+        const isMatched = await verifyPassword(password, u.password);
+        if (isMatched) {
+          foundUser = { ...u };
+          // Nếu mật khẩu cũ lưu plain text, tự động nâng cấp lên SHA-256 hash
+          if (!isPasswordHashed(foundUser.password)) {
+            foundUser.password = await hashPassword(password);
+          }
+          break;
+        }
+      }
+    }
 
     // 2. Nếu chưa thấy, gọi API lấy dữ liệu mới nhất từ Supabase Cloud
     if (!foundUser) {
@@ -37,10 +49,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         if (res.ok) {
           const data = await res.json();
           if (data.success && data.state && data.state.users) {
-            foundUser = data.state.users.find(
-              (u: UserAccount) =>
-                u.username.toLowerCase() === trimmedUser && u.password === password
-            );
+            for (const u of data.state.users as UserAccount[]) {
+              if (u.username.toLowerCase() === trimmedUser) {
+                const isMatched = await verifyPassword(password, u.password);
+                if (isMatched) {
+                  foundUser = { ...u };
+                  if (!isPasswordHashed(foundUser.password)) {
+                    foundUser.password = await hashPassword(password);
+                  }
+                  break;
+                }
+              }
+            }
           }
         }
       } catch {
