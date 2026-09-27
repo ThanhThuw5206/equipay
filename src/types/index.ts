@@ -69,6 +69,7 @@ export interface DebtPayment {
 }
 
 export interface SettlementPeriod {
+  members?: Member[];
   id: string;
   title: string;
   startDate: string;

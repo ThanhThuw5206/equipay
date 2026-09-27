@@ -28,7 +28,7 @@ function fixture(overrides = {}) {
     const loadedModule = { exports: {} };
     cache.set(filename, loadedModule);
     const code = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
-      compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
+      compilerOptions: { target: ts.ScriptTarget.ES2017, module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
     }).outputText;
     const localRequire = (name) => {
       if (name in (overrides.modules || {})) return overrides.modules[name];
@@ -58,12 +58,45 @@ test('paid status and archived expenses survive reload, with fresh status for th
   assert.equal(storage.getInitialState().paidDebts[debt.id].amount, debt.amount);
   storage.archiveCurrentPeriod(storage.getInitialState(), 'September');
   const reloaded = storage.getInitialState();
+  const archivedName = reloaded.history[0].members[0].name;
+  reloaded.members[0].name = 'Renamed member';
+  assert.equal(reloaded.history[0].members[0].name, archivedName);
   assert.equal(reloaded.expenses.length, 0);
   assert.equal(reloaded.history[0].expenses.length, 1);
   assert.equal(reloaded.history[0].debts.find((d) => d.id === debt.id).isPaid, true);
   assert.equal(Object.keys(reloaded.paidDebts).length, 0);
   state.paidDebts[debt.id].amount += 1;
   assert.equal(storage.archiveCurrentPeriod(state, 'Changed amount').history[0].debts[0].isPaid, false);
+});
+
+test('history renders months newest first, archived member names, old periods and month filtering', () => {
+  const React = require('react');
+  const { renderToStaticMarkup } = require('react-dom/server');
+  const members = [{ id: 'a', name: 'Current name' }, { id: 'b', name: 'Receiver' }];
+  const period = {
+    id: 'september', title: 'September archive', startDate: '2026-09-01', endDate: '2026-09-30',
+    settledAt: '2026-09-30T10:00:00Z', totalAmount: 100, status: 'COMPLETED',
+    members: [{ id: 'a', name: 'Archived name' }, members[1]],
+    expenses: [{ id: 'e', title: 'Dinner', amount: 100, payerId: 'a', beneficiaryIds: ['a', 'b'], date: '2026-09-01' }],
+    debts: [{ id: 'd', fromMemberId: 'a', toMemberId: 'b', amount: 50, isPaid: true }],
+  };
+  const oldPeriod = { ...period, id: 'august', title: 'August archive', members: undefined,
+    settledAt: undefined, endDate: '2026-08-31', debts: [] };
+  const { load } = fixture();
+  const History = load('src/components/SettlementHistory.tsx').SettlementHistory;
+  const html = renderToStaticMarkup(React.createElement(History, { history: [oldPeriod, period], members }));
+  assert.ok(html.indexOf('September archive') < html.indexOf('August archive'));
+  assert.ok(html.includes('Archived name'));
+  assert.ok(html.includes('Current name'));
+  assert.ok(html.includes('Đã trả'));
+  assert.ok(html.includes('href="/"'));
+  const filtered = fixture({ modules: { react: { ...React, useState: () => ['09/2026', () => {}] } } });
+  const FilteredHistory = filtered.load('src/components/SettlementHistory.tsx').SettlementHistory;
+  const filteredHtml = renderToStaticMarkup(React.createElement(FilteredHistory, { history: [oldPeriod, period], members }));
+  assert.ok(filteredHtml.includes('September archive'));
+  assert.ok(!filteredHtml.includes('August archive'));
+  const emptyHtml = renderToStaticMarkup(React.createElement(History, { history: [], members }));
+  assert.ok(emptyHtml.includes('Chưa có kỳ chốt sổ nào'));
 });
 
 test('cloud writes are ordered and a successful API write does not write through the SDK again', async () => {
@@ -138,7 +171,7 @@ test('page persists paid toggles and archive through the common sync path; pendi
     beneficiaryIds: initial.members.map((m) => m.id), category: 'FOOD', date: '2026-09-27' }];
   storage.saveState(initial);
   storage.setCurrentUser(initial.users[0]);
-  const Home = load('src/app/page.tsx').default;
+  const Home = load('src/components/EquiPayApp.tsx').default;
   const render = () => { index = 0; const tree = Home(); mounted = true; return tree; };
   const find = (tree, name) => {
     if (!tree || typeof tree !== 'object') return;

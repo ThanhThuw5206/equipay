@@ -108,6 +108,7 @@ export function archiveCurrentPeriod(
   );
 
   const newPeriod: SettlementPeriod = {
+    members: state.members.map((member) => ({ ...member })),
     id: `period_${Date.now()}`,
     title: title || `Kỳ kết toán ${new Date().toLocaleDateString('vi-VN')}`,
     startDate:

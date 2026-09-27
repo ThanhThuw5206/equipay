@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { GroupState, UserAccount } from '@/types';
 import {
   Users,
@@ -18,7 +19,6 @@ interface NavbarProps {
   state: GroupState;
   onUpdateState: (newState: GroupState) => void;
   onOpenMembers: () => void;
-  onOpenHistory: () => void;
   onOpenSync: () => void;
   onOpenUserManager: () => void;
   onOpenLogin: () => void;
@@ -32,7 +32,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   state,
   onUpdateState,
   onOpenMembers,
-  onOpenHistory,
   onOpenSync,
   onOpenUserManager,
   onOpenLogin,
@@ -195,14 +194,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             {/* Settlement History */}
-            <button
-              onClick={onOpenHistory}
+            <Link
+              href="/history"
               className="flex items-center gap-1 text-xs px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition"
               title="Lịch sử các kỳ chốt sổ"
             >
               <History className="w-3.5 h-3.5 text-purple-400" />
               <span className="hidden md:inline">Lịch sử ({state.history.length})</span>
-            </button>
+            </Link>
 
             {/* Cloud Sync */}
             <button
