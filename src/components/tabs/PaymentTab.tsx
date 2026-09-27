@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
-import { DebtPayment, Expense, GroupState, Member, UserAccount } from '@/types';
+import { DebtPayment, GroupState, UserAccount } from '@/types';
 import {
   calculateDebtsByMode,
   formatVND,
@@ -34,6 +34,7 @@ interface PaymentTabProps {
   state: GroupState;
   currentUser: UserAccount | null;
   onArchivePeriod: (title: string) => void;
+  onTogglePaid: (debt: DebtPayment) => void;
   isAdminUnlocked: boolean;
   onUnlockAdmin: () => void;
 }
@@ -42,6 +43,7 @@ export const PaymentTab: React.FC<PaymentTabProps> = ({
   state,
   currentUser,
   onArchivePeriod,
+  onTogglePaid,
   isAdminUnlocked,
   onUnlockAdmin,
 }) => {
@@ -49,9 +51,7 @@ export const PaymentTab: React.FC<PaymentTabProps> = ({
   const memberMap = new Map(state.members.map((m) => [m.id, m]));
   const currentMember = currentMemberId ? memberMap.get(currentMemberId) : null;
 
-  const [settlementMode, setSettlementMode] = useState<'PAIRWISE' | 'OPTIMAL'>(
-    state.settlementMode || 'PAIRWISE'
-  );
+  const settlementMode = state.settlementMode || 'PAIRWISE';
   // Mặc định: Chỉ hiện các khoản tài khoản đang đăng nhập CẦN TRẢ nếu có tài khoản
   const [filterMemberId, setFilterMemberId] = useState<string>(
     currentMemberId ? 'MY_DEBTS' : 'ALL'
@@ -62,7 +62,6 @@ export const PaymentTab: React.FC<PaymentTabProps> = ({
   const [periodTitle, setPeriodTitle] = useState(
     `Kỳ ${new Date().toLocaleDateString('vi-VN')}`
   );
-  const [isPaidMap, setIsPaidMap] = useState<Record<string, boolean>>({});
   const [isExportingImage, setIsExportingImage] = useState(false);
 
   const reportRef = useRef<HTMLDivElement>(null);
@@ -100,13 +99,6 @@ export const PaymentTab: React.FC<PaymentTabProps> = ({
     navigator.clipboard.writeText(stk);
     setCopiedStkId(debtId);
     setTimeout(() => setCopiedStkId(null), 2000);
-  };
-
-  const togglePaidStatus = (debtId: string) => {
-    setIsPaidMap((prev) => ({
-      ...prev,
-      [debtId]: !prev[debtId],
-    }));
   };
 
   const handleExportImage = async () => {
@@ -310,7 +302,7 @@ export const PaymentTab: React.FC<PaymentTabProps> = ({
             {filteredDebts.map((debt) => {
               const fromMember = memberMap.get(debt.fromMemberId);
               const toMember = memberMap.get(debt.toMemberId);
-              const isPaid = isPaidMap[debt.id] || false;
+              const isPaid = state.paidDebts?.[debt.id]?.amount === debt.amount;
 
               return (
                 <div
@@ -405,7 +397,7 @@ export const PaymentTab: React.FC<PaymentTabProps> = ({
 
                       <button
                         type="button"
-                        onClick={() => togglePaidStatus(debt.id)}
+                        onClick={() => onTogglePaid(debt)}
                         className={`text-xs px-2.5 py-1.5 rounded-lg border flex items-center gap-1 transition ${
                           isPaid
                             ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 font-bold'

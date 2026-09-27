@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Expense, GroupState, Member, UserAccount } from '@/types';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { DebtPayment, Expense, GroupState, Member, UserAccount } from '@/types';
 import {
   getInitialState,
   saveState,
@@ -9,6 +9,8 @@ import {
   getCurrentUser,
   setCurrentUser,
   INITIAL_STATE,
+  hasPendingSync,
+  setPendingSync,
 } from '@/lib/storage';
 import {
   fetchCloudState,
@@ -35,6 +37,8 @@ export default function Home() {
   const [state, setState] = useState<GroupState>(INITIAL_STATE);
   const [isLoaded, setIsLoaded] = useState(false);
   const [currentUser, setCurrentUserState] = useState<UserAccount | null>(null);
+  const stateRef = useRef(INITIAL_STATE);
+  const localRevision = useRef(0);
 
   // Active Tab state
   const [activeTab, setActiveTab] = useState<AppTab>('HOME');
@@ -54,13 +58,13 @@ export default function Home() {
   // Toast notification
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const showToast = (msg: string) => {
+  const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
-  };
+  }, []);
 
   // Tự động kiểm tra và nâng cấp băm mật khẩu SHA-256 cho các tài khoản cũ (tránh lưu text)
-  const ensureHashedUsers = async (targetState: GroupState): Promise<GroupState> => {
+  const ensureHashedUsers = useCallback(async (targetState: GroupState): Promise<GroupState> => {
     if (!targetState.users || targetState.users.length === 0) return targetState;
     let hasUnhashed = false;
     const upgradedUsers = await Promise.all(
@@ -75,17 +79,43 @@ export default function Home() {
     );
     if (hasUnhashed) {
       const nextState = { ...targetState, users: upgradedUsers };
-      setState(nextState);
-      saveState(nextState);
-      pushCloudState(nextState);
       return nextState;
     }
     return targetState;
-  };
+  }, []);
+
+  const syncState = useCallback(async (newState: GroupState, revision: number) => {
+    try {
+      const result = await pushCloudState(newState);
+      if (revision !== localRevision.current) return;
+      if (result.success) {
+        setPendingSync(false);
+      } else {
+        showToast('Đã lưu trên máy; chưa đồng bộ cloud: ' + result.error);
+      }
+    } catch (err) {
+      console.warn('Cloud sync error:', err);
+      showToast('Đã lưu trên máy; sẽ thử đồng bộ lại khi có mạng.');
+    }
+  }, [showToast]);
+
+  const updateState = useCallback((newState: GroupState) => {
+    localRevision.current += 1;
+    stateRef.current = newState;
+    setPendingSync(true);
+    setState(newState);
+    saveState(newState);
+
+    // Tự động đẩy dữ liệu lên Supabase Cloud DB ngầm
+    void syncState(newState, localRevision.current);
+  }, [syncState]);
 
   // Load initial state and attempt Cloud Database fetch on mount
   useEffect(() => {
     const loaded = getInitialState();
+    stateRef.current = loaded;
+    // Hydrate browser-only storage after the server-rendered loading screen.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setState(loaded);
     const user = getCurrentUser();
     setCurrentUserState(user);
@@ -94,24 +124,34 @@ export default function Home() {
     }
     setIsLoaded(true);
 
-    // Băm mật khẩu tài khoản local nếu còn lưu text
-    ensureHashedUsers(loaded);
+    let disposed = false;
 
-    // Tự động tải dữ liệu từ Supabase Cloud DB nếu đã kết nối
-    fetchCloudState().then((res) => {
-      if (res.state && res.state.members && res.state.members.length >= 4) {
-        setState(res.state);
-        saveState(res.state);
-        ensureHashedUsers(res.state);
-      } else {
-        // Nếu trên Supabase chưa có dữ liệu (0 bản ghi), tự động đẩy dữ liệu hiện tại lên ngay!
-        pushCloudState(loaded);
+    // Retry local changes before accepting an older cloud snapshot.
+    const refreshCloud = async () => {
+      if (hasPendingSync()) {
+        await syncState(stateRef.current, localRevision.current);
+        return;
       }
-    });
+      const revision = localRevision.current;
+      const res = await fetchCloudState();
+      if (disposed || hasPendingSync() || revision !== localRevision.current) return;
+      const sourceState = res.state || stateRef.current;
+      const nextState = await ensureHashedUsers(sourceState);
+      if (disposed || hasPendingSync() || revision !== localRevision.current) return;
+      if (nextState.members?.length >= 4) {
+        stateRef.current = nextState;
+        setState(nextState);
+        saveState(nextState);
+        if (!res.error && (nextState !== sourceState || !res.state)) updateState(nextState);
+      }
+    };
+    void refreshCloud();
 
     // Lắng nghe thay đổi Realtime từ Supabase (khi người khác thêm chi tiêu)
     const unsubscribe = subscribeToCloudChanges((remoteState) => {
-      if (remoteState && remoteState.members) {
+      if (!disposed && !hasPendingSync() && remoteState && remoteState.members) {
+        localRevision.current += 1;
+        stateRef.current = remoteState;
         setState(remoteState);
         saveState(remoteState);
         showToast('Dữ liệu vừa được cập nhật từ thiết bị khác! 🔄');
@@ -119,15 +159,6 @@ export default function Home() {
     });
 
     // Tự động kiểm tra và tải lại dữ liệu mới nhất khi người dùng mở lại tab hoặc có mạng
-    const refreshCloud = () => {
-      fetchCloudState().then((res) => {
-        if (res.state && res.state.members && res.state.members.length >= 4) {
-          setState(res.state);
-          saveState(res.state);
-        }
-      });
-    };
-
     window.addEventListener('focus', refreshCloud);
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') refreshCloud();
@@ -136,22 +167,13 @@ export default function Home() {
     window.addEventListener('online', refreshCloud);
 
     return () => {
+      disposed = true;
       if (unsubscribe) unsubscribe();
       window.removeEventListener('focus', refreshCloud);
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('online', refreshCloud);
     };
-  }, []);
-
-  const updateState = (newState: GroupState) => {
-    setState(newState);
-    saveState(newState);
-
-    // Tự động đẩy dữ liệu lên Supabase Cloud DB ngầm
-    pushCloudState(newState).catch((err) =>
-      console.warn('Cloud sync background error:', err)
-    );
-  };
+  }, [ensureHashedUsers, showToast, syncState, updateState]);
 
   // Auth Handlers
   const handleLoginSuccess = (user: UserAccount) => {
@@ -161,8 +183,6 @@ export default function Home() {
       setIsAdminUnlocked(true);
     }
     showToast(`Xin chào, ${user.displayName}! 🎉`);
-    // Đảm bảo dữ liệu nhóm được đẩy lên Supabase
-    pushCloudState(state);
   };
 
   const handleLogout = () => {
@@ -242,10 +262,21 @@ export default function Home() {
 
   // Settlement Finalize
   const handleArchivePeriod = (title: string) => {
-    const nextState = archiveCurrentPeriod(state, title);
-    setState(nextState);
+    const nextState = archiveCurrentPeriod(stateRef.current, title);
+    updateState(nextState);
     showToast(`Đã chốt sổ "${title}" và lưu vào lịch sử! 🚀`);
     setActiveTab('HOME');
+  };
+
+  const handleTogglePaid = (debt: DebtPayment) => {
+    const current = stateRef.current;
+    const paidDebts = { ...current.paidDebts };
+    if (paidDebts[debt.id]?.amount === debt.amount) {
+      delete paidDebts[debt.id];
+    } else {
+      paidDebts[debt.id] = { amount: debt.amount, paidAt: new Date().toISOString() };
+    }
+    updateState({ ...current, paidDebts });
   };
 
   // Import Backup
@@ -359,6 +390,7 @@ export default function Home() {
             state={state}
             currentUser={currentUser}
             onArchivePeriod={handleArchivePeriod}
+            onTogglePaid={handleTogglePaid}
             isAdminUnlocked={isAdmin}
             onUnlockAdmin={() => {
               setIsAdminUnlocked(true);

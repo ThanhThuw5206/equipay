@@ -88,5 +88,6 @@ export interface GroupState {
   history: SettlementPeriod[];
   adminPin?: string;
   settlementMode?: 'PAIRWISE' | 'OPTIMAL';
+  paidDebts?: Record<string, { amount: number; paidAt: string }>;
   users: UserAccount[];
 }

@@ -1,9 +1,19 @@
 import { DEFAULT_ADMIN_USER, DEFAULT_MEMBERS } from './constants';
-import { Expense, GroupState, Member, SettlementPeriod, UserAccount } from '@/types';
+import { Expense, GroupState, SettlementPeriod, UserAccount } from '@/types';
 import { calculateDebtsByMode } from './settlement-algorithm';
 
 const STORAGE_KEY = 'EQUIPAY_STATE_V3';
 const AUTH_KEY = 'EQUIPAY_CURRENT_USER_V3';
+const PENDING_SYNC_KEY = 'EQUIPAY_PENDING_SYNC_V1';
+
+export function hasPendingSync(): boolean {
+  return typeof window !== 'undefined' && localStorage.getItem(PENDING_SYNC_KEY) === 'true';
+}
+
+export function setPendingSync(pending: boolean): void {
+  if (pending) localStorage.setItem(PENDING_SYNC_KEY, 'true');
+  else localStorage.removeItem(PENDING_SYNC_KEY);
+}
 
 const INITIAL_EXPENSES: Expense[] = [];
 
@@ -107,7 +117,12 @@ export function archiveCurrentPeriod(
     endDate: new Date().toISOString(),
     totalAmount,
     expenses: [...state.expenses],
-    debts,
+    debts: debts.map((debt) => {
+      const payment = state.paidDebts?.[debt.id];
+      return payment?.amount === debt.amount
+        ? { ...debt, isPaid: true, paidAt: payment.paidAt }
+        : debt;
+    }),
     status: 'COMPLETED',
     settledAt: new Date().toISOString(),
   };
@@ -115,6 +130,7 @@ export function archiveCurrentPeriod(
   const newState: GroupState = {
     ...state,
     expenses: [],
+    paidDebts: {},
     history: [newPeriod, ...state.history],
   };
 

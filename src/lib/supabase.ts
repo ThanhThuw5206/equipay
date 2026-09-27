@@ -106,6 +106,9 @@ export async function fetchCloudState(): Promise<{ state: GroupState | null; err
         if (json.success && json.state && json.state.members) {
           return { state: json.state as GroupState, source: json.source };
         }
+        if (json.success && json.state === null) {
+          return { state: null, source: json.source };
+        }
         if (!json.success && json.error) {
           return { state: null, error: json.error, source: json.source };
         }
@@ -136,18 +139,27 @@ export async function fetchCloudState(): Promise<{ state: GroupState | null; err
     }
 
     return { state: null, error: 'Bảng equipay_group_data chưa có dữ liệu.' };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.warn('Cloud fetch exception:', err);
-    return { state: null, error: err.message || String(err) };
+    return { state: null, error: err instanceof Error ? err.message : String(err) };
   }
 }
 
 /**
  * Đẩy dữ liệu từ web lên Supabase Cloud Database để đồng bộ tất cả các bảng
  */
-export async function pushCloudState(state: GroupState): Promise<{ success: boolean; error?: string; source?: string }> {
+type PushResult = { success: boolean; error?: string; source?: string };
+let pushQueue: Promise<PushResult> = Promise.resolve({ success: true });
+
+export function pushCloudState(state: GroupState): Promise<PushResult> {
+  const push = () => writeCloudState(state);
+  pushQueue = pushQueue.then(push, push);
+  return pushQueue;
+}
+
+async function writeCloudState(state: GroupState): Promise<PushResult> {
   const config = getSupabaseConfig();
-  let serverSuccess = false;
+  let serverError = 'Chưa cấu hình thông tin Supabase';
 
   // 1. Đẩy qua Server Route /api/sync
   if (typeof window !== 'undefined') {
@@ -169,11 +181,14 @@ export async function pushCloudState(state: GroupState): Promise<{ success: bool
       if (res.ok) {
         const json = await res.json();
         if (json.success) {
-          serverSuccess = true;
+          return { success: true, source: 'server_api' };
         }
+        serverError = json.error || 'Không thể lưu dữ liệu lên Supabase';
+      } else {
+        serverError = `Lỗi đồng bộ HTTP ${res.status}`;
       }
-    } catch {
-      // Fallback
+    } catch (err) {
+      serverError = err instanceof Error ? err.message : String(err);
     }
   }
 
@@ -182,13 +197,14 @@ export async function pushCloudState(state: GroupState): Promise<{ success: bool
   if (client) {
     try {
       // Bảng 1: equipay_group_data
-      await client
+      const { error: masterError } = await client
         .from('equipay_group_data')
         .upsert({
           id: 'default_group',
           state_data: state,
           updated_at: new Date().toISOString(),
         });
+      if (masterError) return { success: false, error: masterError.message };
 
       // Bảng 2: user_accounts (Lưu riêng từng tài khoản đăng nhập)
       if (state.users && state.users.length > 0) {
@@ -235,18 +251,12 @@ export async function pushCloudState(state: GroupState): Promise<{ success: bool
       }
 
       return { success: true, source: 'client_sdk_all_tables' };
-    } catch (err: any) {
-      if (!serverSuccess) {
-        return { success: false, error: err.message || String(err) };
-      }
+    } catch (err: unknown) {
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
     }
   }
 
-  if (serverSuccess) {
-    return { success: true, source: 'server_api' };
-  }
-
-  return { success: false, error: 'Chưa cấu hình thông tin Supabase' };
+  return { success: false, error: serverError };
 }
 
 /**
@@ -269,8 +279,8 @@ export function subscribeToCloudChanges(
           table: 'equipay_group_data',
           filter: 'id=eq.default_group',
         },
-        (payload: any) => {
-          if (payload.new && payload.new.state_data) {
+        (payload) => {
+          if (payload.new && 'state_data' in payload.new && payload.new.state_data) {
             onUpdate(payload.new.state_data as GroupState);
           }
         }
