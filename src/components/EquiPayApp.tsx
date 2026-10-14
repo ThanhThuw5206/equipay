@@ -27,6 +27,7 @@ import { PaymentTab } from '@/components/tabs/PaymentTab';
 import { AddExpenseModal } from '@/components/AddExpenseModal';
 import { MemberSettingsModal } from '@/components/MemberSettingsModal';
 import { PaymentHistory } from '@/components/PaymentHistory';
+import { PeriodSummary } from '@/components/PeriodSummary';
 import { SettlementHistory } from '@/components/SettlementHistory';
 import { CloudSyncModal } from '@/components/CloudSyncModal';
 import { UserManagerModal } from '@/components/UserManagerModal';
@@ -263,6 +264,10 @@ export default function EquiPayApp({ view = 'dashboard' }: { view?: 'dashboard' 
   // Settlement Finalize
   const handleArchivePeriod = (title: string) => {
     const nextState = archiveCurrentPeriod(stateRef.current, title);
+    if (nextState === stateRef.current) {
+      showToast('Chưa có chi tiêu hoặc thanh toán mới để chốt kỳ.');
+      return;
+    }
     updateState(nextState);
     showToast(`Đã chốt sổ "${title}" và lưu vào lịch sử! 🚀`);
     setActiveTab('HOME');
@@ -301,7 +306,7 @@ export default function EquiPayApp({ view = 'dashboard' }: { view?: 'dashboard' 
 
   const isAdmin = currentUser?.role === 'ADMIN' || isAdminUnlocked;
   const payments = getRecordedPayments(state);
-  const debts = calculateDebtsByMode(state.members, state.expenses, state.settlementMode, payments);
+  const debts = calculateDebtsByMode(state.members, state.expenses, state.settlementMode, payments, state.carriedDebts);
 
   if (!isLoaded) {
     return (
@@ -365,12 +370,16 @@ export default function EquiPayApp({ view = 'dashboard' }: { view?: 'dashboard' 
             />
 
             {(activeTab === 'DEBTS' || activeTab === 'PAYMENT') && (
+              <PeriodSummary state={state} />
+            )}
+            {(activeTab === 'DEBTS' || activeTab === 'PAYMENT') && (
               <PaymentHistory payments={getRecordedPayments(state, true)} members={state.members} onUndoPayment={handleUndoPayment} />
             )}
             {/* Tab Content Display */}
             {activeTab === 'HOME' && (
               <HomeTab
                 payments={payments}
+                carriedDebts={state.carriedDebts}
                 settlementMode={state.settlementMode}
                 members={state.members}
                 expenses={state.expenses}
@@ -383,6 +392,7 @@ export default function EquiPayApp({ view = 'dashboard' }: { view?: 'dashboard' 
             {activeTab === 'OVERVIEW' && (
               <OverviewTab
                 payments={payments}
+                carriedDebts={state.carriedDebts}
                 settlementMode={state.settlementMode}
                 members={state.members}
                 expenses={state.expenses}
@@ -405,6 +415,7 @@ export default function EquiPayApp({ view = 'dashboard' }: { view?: 'dashboard' 
               <DebtsTab
                 onMarkPaid={handleTogglePaid}
                 payments={payments}
+                carriedDebts={state.carriedDebts}
                 settlementMode={state.settlementMode}
                 members={state.members}
                 expenses={state.expenses}

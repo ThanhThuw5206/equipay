@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { RecordedPayment, DebtPayment, Expense, Member, UserAccount } from '@/types';
+import { CarriedDebt, RecordedPayment, DebtPayment, Expense, Member, UserAccount } from '@/types';
 import { calculateDebtsByMode, formatVND } from '@/lib/settlement-algorithm';
 import { generateVietQRUrl, generateTransferDescription } from '@/lib/vietqr';
 import { POPULAR_BANK_APPS, openBankingApp } from '@/lib/bank-deeplinks';
@@ -25,6 +25,7 @@ interface DebtsTabProps {
   members: Member[];
   expenses: Expense[];
   payments?: RecordedPayment[];
+  carriedDebts?: CarriedDebt[];
   settlementMode?: 'PAIRWISE' | 'OPTIMAL';
   currentUser: UserAccount | null;
   onNavigateToPayment: () => void;
@@ -35,6 +36,7 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
   members,
   expenses,
   payments = [],
+  carriedDebts = [],
   settlementMode,
   currentUser,
   onNavigateToPayment,
@@ -52,7 +54,7 @@ export const DebtsTab: React.FC<DebtsTabProps> = ({
   const [selectedQRDebt, setSelectedQRDebt] = useState<DebtPayment | null>(null);
   const [copiedStkId, setCopiedStkId] = useState<string | null>(null);
 
-  const debts = calculateDebtsByMode(members, expenses, settlementMode, payments);
+  const debts = calculateDebtsByMode(members, expenses, settlementMode, payments, carriedDebts);
 
   // Các khoản tài khoản này cần trả
   const myDebtsToPay = currentMemberId

@@ -1,4 +1,4 @@
-import { DebtPayment, Expense, Member, RecordedPayment, GroupState } from '@/types';
+import { DebtPayment, Expense, Member, RecordedPayment, GroupState, CarriedDebt } from '@/types';
 
 export interface MemberBalance {
   member: Member;
@@ -13,7 +13,8 @@ export interface MemberBalance {
 export function calculateBalances(
   members: Member[],
   expenses: Expense[],
-  payments: RecordedPayment[] = []
+  payments: RecordedPayment[] = [],
+  carriedDebts: CarriedDebt[] = []
 ): Record<string, MemberBalance> {
   const balances: Record<string, MemberBalance> = {};
 
@@ -50,7 +51,7 @@ export function calculateBalances(
   // Tính số dư ròng (làm tròn số nguyên để tránh lẻ xu)
   for (const m of members) {
     const b = balances[m.id];
-    b.netBalance = Math.round(b.totalPaid - b.totalConsumed + payments.reduce((sum, p) => sum + (p.fromMemberId === m.id ? p.amount : 0) - (p.toMemberId === m.id ? p.amount : 0), 0));
+    b.netBalance = Math.round(b.totalPaid - b.totalConsumed + carriedDebts.reduce((sum, d) => sum + (d.toMemberId === m.id ? d.amount : 0) - (d.fromMemberId === m.id ? d.amount : 0), 0) + payments.reduce((sum, p) => sum + (p.fromMemberId === m.id ? p.amount : 0) - (p.toMemberId === m.id ? p.amount : 0), 0));
   }
 
   return balances;
@@ -66,10 +67,16 @@ export function calculateBalances(
 export function calculatePairwiseDebts(
   members: Member[],
   expenses: Expense[],
-  payments: RecordedPayment[] = []
+  payments: RecordedPayment[] = [],
+  carriedDebts: CarriedDebt[] = []
 ): DebtPayment[] {
   const debts: DebtPayment[] = [];
-  const memberMap = new Map(members.map((m) => [m.id, m]));
+  // Opening balances are used only for debt calculation, never expense totals.
+  const accountingExpenses: Expense[] = [...expenses, ...carriedDebts.map((debt) => ({
+    id: `opening_${debt.id}`, title: `Nợ kỳ trước: ${debt.sources.map((source) => source.title).join(', ')}`,
+    amount: debt.amount, payerId: debt.toMemberId, beneficiaryIds: [debt.fromMemberId],
+    category: 'OTHER' as const, date: '',
+  }))];
 
   // Duyệt qua từng cặp thành viên (i < j để không lặp)
   for (let i = 0; i < members.length; i++) {
@@ -85,7 +92,7 @@ export function calculatePairwiseDebts(
       const bPaidForA: { title: string; amount: number }[] = [];
       let totalBPaidForA = 0;
 
-      for (const exp of expenses) {
+      for (const exp of accountingExpenses) {
         const beneficiaries =
           exp.beneficiaryIds && exp.beneficiaryIds.length > 0
             ? exp.beneficiaryIds
@@ -176,9 +183,10 @@ export function calculatePairwiseDebts(
 export function calculateOptimalDebts(
   members: Member[],
   expenses: Expense[],
-  payments: RecordedPayment[] = []
+  payments: RecordedPayment[] = [],
+  carriedDebts: CarriedDebt[] = []
 ): DebtPayment[] {
-  const balances = calculateBalances(members, expenses, payments);
+  const balances = calculateBalances(members, expenses, payments, carriedDebts);
 
   interface PersonAmount {
     id: string;
@@ -190,9 +198,9 @@ export function calculateOptimalDebts(
 
   for (const member of members) {
     const net = balances[member.id].netBalance;
-    if (net < -1) {
+    if (net < 0) {
       debtors.push({ id: member.id, amount: Math.abs(net) });
-    } else if (net > 1) {
+    } else if (net > 0) {
       creditors.push({ id: member.id, amount: net });
     }
   }
@@ -238,12 +246,13 @@ export function calculateDebtsByMode(
   members: Member[],
   expenses: Expense[],
   mode: 'PAIRWISE' | 'OPTIMAL' = 'PAIRWISE',
-  payments: RecordedPayment[] = []
+  payments: RecordedPayment[] = [],
+  carriedDebts: CarriedDebt[] = []
 ): DebtPayment[] {
   if (mode === 'OPTIMAL') {
-    return calculateOptimalDebts(members, expenses, payments);
+    return calculateOptimalDebts(members, expenses, payments, carriedDebts);
   }
-  return calculatePairwiseDebts(members, expenses, payments);
+  return calculatePairwiseDebts(members, expenses, payments, carriedDebts);
 }
 
 /**
@@ -274,7 +283,7 @@ export function getRecordedPayments(state: GroupState, includeUndone = false): R
 
 export function recordDebtPayment(state: GroupState, requested: DebtPayment): GroupState {
   const payments = getRecordedPayments(state);
-  const current = calculateDebtsByMode(state.members, state.expenses, state.settlementMode, payments)
+  const current = calculateDebtsByMode(state.members, state.expenses, state.settlementMode, payments, state.carriedDebts)
     .find((debt) => debt.id === requested.id);
   // Reject repeated clicks and stale amounts.
   if (!current || current.amount !== requested.amount) return state;
@@ -294,4 +303,32 @@ export function undoDebtPayment(state: GroupState, paymentId: string): GroupStat
       ? { ...payment, undoneAt: new Date().toISOString() }
       : payment),
   };
+}
+
+/** Split remaining direct-pair debt, allocating repayments to oldest balances first. */
+export function splitDebtSources(state: GroupState, debt: DebtPayment) {
+  const currentDebts = calculatePairwiseDebts(state.members, state.expenses);
+  const newAmount = currentDebts.find((item) => item.id === debt.id)?.amount || 0;
+  const opening = (state.carriedDebts || []).find((item) => item.id === debt.id);
+  const oldRemaining = Math.min(opening?.amount || 0, Math.max(0, debt.amount - newAmount));
+  let toSkip = (opening?.amount || 0) - oldRemaining;
+  const sources = (opening?.sources || []).flatMap((source) => {
+    const skipped = Math.min(toSkip, source.amount);
+    toSkip -= skipped;
+    return source.amount > skipped ? [{ ...source, amount: source.amount - skipped }] : [];
+  });
+  return { sources, previousAmount: oldRemaining, currentAmount: debt.amount - oldRemaining };
+}
+
+export function getClosingDebts(state: GroupState, periodId: string, title: string): CarriedDebt[] {
+  return calculateDebtsByMode(state.members, state.expenses, state.settlementMode,
+    getRecordedPayments(state), state.carriedDebts).map((debt) => {
+      // Optimized transfers can change counterparties; the closed period retains
+      // the opening balances and transfer details needed to trace that netting.
+      const split = state.settlementMode === 'OPTIMAL'
+        ? { sources: [], currentAmount: debt.amount }
+        : splitDebtSources(state, debt);
+      return { ...debt, sources: [...split.sources,
+        ...(split.currentAmount > 0 ? [{ periodId, title, amount: split.currentAmount }] : [])] };
+    });
 }

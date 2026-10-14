@@ -253,6 +253,8 @@ test('page persists payments, undo and archive through the common sync path; pen
   find(render(), 'PaymentTab').onArchivePeriod('September'); await flush();
   assert.equal(writes.at(-1).expenses.length, 0);
   assert.equal(writes.at(-1).history.length, 1);
+  assert.equal(writes.at(-1).carriedDebts.length, 2, 'unpaid debts are sent to cloud with the archive');
+  assert.equal(storage.getInitialState().carriedDebts.length, 2);
   assert.equal(storage.getInitialState().history[0].title, 'September');
   online = true;
   hooks = []; effects = []; mounted = false;
@@ -316,4 +318,125 @@ test('payment history renders review, undo actions, timestamps and undone record
   assert.ok(html.includes('Binh'));
   const empty = renderToStaticMarkup(React.createElement(PaymentHistory, { members, payments: [] }));
   assert.ok(empty.includes('Chưa có khoản nào'));
+});
+
+
+test('closing carries only unpaid balances across multiple periods without counting them as spending', () => {
+  const { load } = fixture();
+  const storage = load('src/lib/storage.ts');
+  const algo = load('src/lib/settlement-algorithm.ts');
+  for (const mode of ['PAIRWISE', 'OPTIMAL']) {
+    let state = structuredClone(storage.INITIAL_STATE);
+    state.settlementMode = mode;
+    const [a, b, c] = state.members;
+    const expense = { id: 'oct-meal', title: 'Meal', amount: 400, payerId: a.id,
+      beneficiaryIds: state.members.map((m) => m.id), category: 'FOOD', date: '2026-10-14' };
+    state.expenses = [expense];
+    const debts = (s) => algo.calculateDebtsByMode(s.members, s.expenses, s.settlementMode, algo.getRecordedPayments(s), s.carriedDebts);
+    state = algo.recordDebtPayment(state, debts(state).find((debt) => debt.fromMemberId === c.id));
+    const closed = storage.archiveCurrentPeriod(state, 'October');
+    assert.equal(closed.expenses.length, 0);
+    assert.equal(closed.payments.length, 0);
+    assert.equal(closed.history[0].totalAmount, 400);
+    assert.equal(closed.carriedDebts.reduce((sum, debt) => sum + debt.amount, 0), 200);
+    assert.equal(debts(closed).find((debt) => debt.fromMemberId === b.id).amount, 100);
+    assert.ok(!debts(closed).some((debt) => debt.fromMemberId === c.id));
+    assert.equal(storage.archiveCurrentPeriod(closed, 'Duplicate'), closed);
+    assert.equal(debts(storage.getInitialState()).length, 2);
+    const historical = JSON.stringify(closed.history);
+    state = { ...closed, expenses: [{ ...expense, id: 'nov-meal', amount: 80 }] };
+    const nextDebt = debts(state).find((debt) => debt.fromMemberId === b.id);
+    assert.equal(nextDebt.amount, 120);
+    assert.equal(algo.calculateBalances(state.members, state.expenses, [], state.carriedDebts)[b.id].netBalance, -120);
+    if (mode === 'PAIRWISE') {
+      const split = algo.splitDebtSources(state, nextDebt);
+      assert.equal(split.previousAmount, 100);
+      assert.equal(split.currentAmount, 20);
+    }
+    const paid = algo.recordDebtPayment(state, nextDebt);
+    assert.ok(!debts(paid).some((debt) => debt.fromMemberId === b.id));
+    const undone = algo.undoDebtPayment(paid, paid.payments[0].id);
+    assert.equal(debts(undone).find((debt) => debt.fromMemberId === b.id).amount, 120);
+    assert.equal(JSON.stringify(undone.history), historical);
+    const november = storage.archiveCurrentPeriod(undone, 'November');
+    assert.equal(november.history[0].totalAmount, 80);
+    assert.equal(november.history[0].payments.length, 1);
+    assert.ok(november.history[0].payments[0].undoneAt);
+    assert.equal(debts(november).find((debt) => debt.fromMemberId === b.id).amount, 120);
+    if (mode === 'PAIRWISE') {
+      const sources = november.carriedDebts.find((debt) => debt.fromMemberId === b.id).sources;
+      assert.equal(sources[0].title, 'October');
+      assert.equal(sources[0].amount, 100);
+      assert.equal(sources[1].title, 'November');
+      assert.equal(sources[1].amount, 20);
+    }
+    state = november;
+    for (const debt of debts(november)) state = algo.recordDebtPayment(state, debt);
+    const settled = storage.archiveCurrentPeriod(state, 'December');
+    assert.equal(settled.history[0].totalAmount, 0);
+    assert.equal(debts(settled).length, 0);
+    assert.equal(settled.carriedDebts.length, 0);
+  }
+});
+
+test('carry source allocation offsets old debt first and preserves one-dong optimized debt', () => {
+  const { load } = fixture();
+  const storage = load('src/lib/storage.ts');
+  const algo = load('src/lib/settlement-algorithm.ts');
+  let state = structuredClone(storage.INITIAL_STATE);
+  const [a, b] = state.members;
+  state.expenses = [{ id: 'old', title: 'Old', amount: 100, payerId: a.id, beneficiaryIds: [b.id], category: 'FOOD', date: '2026-10-14' }];
+  state = storage.archiveCurrentPeriod(state, 'October');
+  state.expenses = [{ id: 'reverse', title: 'Reverse', amount: 40, payerId: b.id, beneficiaryIds: [a.id], category: 'FOOD', date: '2026-11-14' }];
+  const closing = algo.getClosingDebts(state, 'nov', 'November');
+  assert.equal(closing[0].amount, 60);
+  assert.equal(closing[0].sources[0].title, 'October');
+  assert.equal(closing[0].sources[0].amount, 60);
+  state.expenses[0].amount = 130;
+  const reversed = algo.getClosingDebts(state, 'nov', 'November');
+  assert.equal(reversed[0].fromMemberId, a.id);
+  assert.equal(reversed[0].amount, 30);
+  assert.equal(reversed[0].sources[0].title, 'November');
+  state.expenses = [];
+  state.carriedDebts[0].amount = 1;
+  assert.equal(algo.calculateDebtsByMode(state.members, [], 'OPTIMAL', [], state.carriedDebts)[0].amount, 1);
+});
+
+
+test('close-period button previews totals and only archives after explicit confirmation', () => {
+  let slots = [], index = 0, archives = 0;
+  const react = {
+    useState(initial) { const key = index++; if (!(key in slots)) slots[key] = initial;
+      return [slots[key], (value) => { slots[key] = value; }]; },
+    useRef(initial) { return { current: initial }; },
+  };
+  const { load } = fixture({ modules: {
+    react, 'canvas-confetti': () => {}, 'html-to-image': {},
+    'react/jsx-runtime': { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }) },
+  } });
+  const state = structuredClone(load('src/lib/storage.ts').INITIAL_STATE);
+  state.expenses = [{ id: 'meal', title: 'Meal', amount: 400, payerId: state.members[0].id,
+    beneficiaryIds: state.members.map((m) => m.id), category: 'FOOD', date: '2026-10-14' }];
+  const PaymentTab = load('src/components/tabs/PaymentTab.tsx').PaymentTab;
+  const render = () => { index = 0; return PaymentTab({ state, currentUser: null, isAdminUnlocked: true,
+    onArchivePeriod() { archives++; }, onTogglePaid() {}, onUnlockAdmin() {} }); };
+  const textOf = (node) => typeof node === 'string' ? node : [node?.props?.children].flat().map((child) => child && textOf(child)).join('');
+  const find = (node, predicate) => {
+    if (!node || typeof node !== 'object') return;
+    if (predicate(node)) return node;
+    for (const child of [node.props?.children].flat()) { const found = find(child, predicate); if (found) return found; }
+  };
+  const button = (tree, label) => find(tree, (node) => node.type === 'button' && textOf(node).includes(label));
+  button(render(), 'Chốt sổ &').props.onClick();
+  assert.equal(archives, 0);
+  assert.ok(find(render(), (node) => node.props?.role === 'dialog'));
+  assert.ok(find(render(), (node) => node.type === 'PeriodSummary'));
+  button(render(), 'Quay lại').props.onClick();
+  assert.equal(archives, 0);
+  assert.ok(!find(render(), (node) => node.props?.role === 'dialog'));
+  button(render(), 'Chốt sổ &').props.onClick();
+  button(render(), 'Xác nhận chốt & chuyển nợ').props.onClick();
+  assert.equal(archives, 1);
+  state.expenses = [];
+  assert.equal(button(render(), 'Chốt sổ &').props.disabled, true);
 });

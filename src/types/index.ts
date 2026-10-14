@@ -73,7 +73,14 @@ export interface RecordedPayment extends DebtPayment {
   undoneAt?: string;
 }
 
+export interface CarriedDebt extends DebtPayment {
+  sources: { periodId: string; title: string; amount: number }[];
+}
+
 export interface SettlementPeriod {
+  openingDebts?: CarriedDebt[];
+  carriedDebts?: CarriedDebt[];
+  payments?: RecordedPayment[];
   members?: Member[];
   id: string;
   title: string;
@@ -88,6 +95,7 @@ export interface SettlementPeriod {
 }
 
 export interface GroupState {
+  carriedDebts?: CarriedDebt[];
   payments?: RecordedPayment[];
   groupName: string;
   members: Member[];

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { RecordedPayment, Expense, Member, UserAccount } from '@/types';
+import { CarriedDebt, RecordedPayment, Expense, Member, UserAccount } from '@/types';
 import { calculateBalances, calculateDebtsByMode, formatVND } from '@/lib/settlement-algorithm';
 import { CATEGORIES_CONFIG } from '@/lib/constants';
 import {
@@ -20,6 +20,7 @@ interface HomeTabProps {
   members: Member[];
   expenses: Expense[];
   payments?: RecordedPayment[];
+  carriedDebts?: CarriedDebt[];
   settlementMode?: 'PAIRWISE' | 'OPTIMAL';
   currentUser: UserAccount | null;
   onOpenAddExpense: () => void;
@@ -30,6 +31,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   members,
   expenses,
   payments = [],
+  carriedDebts = [],
   settlementMode,
   currentUser,
   onOpenAddExpense,
@@ -37,9 +39,9 @@ export const HomeTab: React.FC<HomeTabProps> = ({
 }) => {
   const totalSpend = expenses.reduce((sum, e) => sum + e.amount, 0);
   const avgPerPerson = totalSpend > 0 ? totalSpend / (members.length || 4) : 0;
-  const debts = calculateDebtsByMode(members, expenses, settlementMode, payments);
+  const debts = calculateDebtsByMode(members, expenses, settlementMode, payments, carriedDebts);
   const memberMap = new Map(members.map((m) => [m.id, m]));
-  const balances = calculateBalances(members, expenses, payments);
+  const balances = calculateBalances(members, expenses, payments, carriedDebts);
 
   // User's specific debt status
   const currentMemberId = currentUser?.memberId;

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
+import { PeriodSummary } from '@/components/PeriodSummary';
 import { DebtPayment, GroupState, UserAccount } from '@/types';
 import {
   calculateDebtsByMode,
@@ -60,14 +61,16 @@ export const PaymentTab: React.FC<PaymentTabProps> = ({
   const [copiedStkId, setCopiedStkId] = useState<string | null>(null);
   const [selectedQRDebt, setSelectedQRDebt] = useState<DebtPayment | null>(null);
   const [periodTitle, setPeriodTitle] = useState(
-    `Kỳ ${new Date().toLocaleDateString('vi-VN')}`
+    `Tháng ${new Date().toLocaleDateString('vi-VN', { month: '2-digit', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' })}`
   );
   const [isExportingImage, setIsExportingImage] = useState(false);
 
   const reportRef = useRef<HTMLDivElement>(null);
+  const [showClosingPreview, setShowClosingPreview] = useState(false);
+  const canClose = state.expenses.length > 0 || getRecordedPayments(state, true).length > 0;
 
   const totalAmount = state.expenses.reduce((sum, e) => sum + e.amount, 0);
-  const allDebts = calculateDebtsByMode(state.members, state.expenses, settlementMode, getRecordedPayments(state));
+  const allDebts = calculateDebtsByMode(state.members, state.expenses, settlementMode, getRecordedPayments(state), state.carriedDebts);
 
   // Các khoản tài khoản này cần trả
   const myDebtsToPay = currentMemberId
@@ -125,7 +128,13 @@ export const PaymentTab: React.FC<PaymentTabProps> = ({
       onUnlockAdmin();
       return;
     }
+    if (!canClose) return;
+    setShowClosingPreview(true);
+  };
 
+  const confirmFinalize = () => {
+    if (!isAdminUnlocked || !canClose) return;
+    setShowClosingPreview(false);
     try {
       confetti({
         particleCount: 100,
@@ -141,6 +150,19 @@ export const PaymentTab: React.FC<PaymentTabProps> = ({
 
   return (
     <div className="space-y-4 animate-fadeIn">
+      {showClosingPreview && (
+        <div className="fixed inset-0 z-50 bg-black/80 p-4 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="closing-title">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl border border-slate-700 bg-slate-950 p-5 space-y-4">
+            <h2 id="closing-title" className="text-lg font-bold">Xác nhận chốt kỳ: {periodTitle}</h2>
+            <PeriodSummary state={state} />
+            <p className="text-sm text-slate-400">Chi tiêu kỳ mới bắt đầu từ 0. Các khoản nợ chưa trả vẫn tiếp tục được thanh toán ở kỳ mới; không cần đợi đủ 4 người.</p>
+            <div className="flex flex-wrap justify-end gap-3">
+              <button type="button" onClick={() => setShowClosingPreview(false)} className="rounded-xl bg-slate-800 px-4 py-2">Quay lại</button>
+              <button type="button" disabled={!canClose || !isAdminUnlocked} onClick={confirmFinalize} className="rounded-xl bg-emerald-500 px-4 py-2 font-bold text-slate-950 disabled:opacity-50">Xác nhận chốt & chuyển nợ</button>
+            </div>
+          </div>
+        </div>
+      )}
       <p className="text-sm text-teal-300">Bấm “Đã trả” sau khi chuyển tiền để chốt riêng khoản đó. Khoản chi mới được tính tiếp, không cần chờ cả nhóm.</p>
       {/* Header & Controls */}
       <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-4 sm:p-5 text-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
@@ -441,6 +463,7 @@ export const PaymentTab: React.FC<PaymentTabProps> = ({
           <button
             type="button"
             onClick={handleFinalize}
+            disabled={!canClose}
             className="py-3 px-6 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 transition active:scale-95"
           >
             {!isAdminUnlocked && <Lock className="w-4 h-4" />}
