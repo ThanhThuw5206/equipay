@@ -15,7 +15,7 @@ function fixture(overrides = {}) {
     removeItem: (key) => values.delete(key),
   };
   const context = vm.createContext({
-    console, localStorage, URLSearchParams, process: { env: {} },
+    console, localStorage, crypto: require("node:crypto").webcrypto, URLSearchParams, process: { env: {} },
     window: { location: { search: '' }, addEventListener() {}, removeEventListener() {} },
     document: { addEventListener() {}, removeEventListener() {} },
     setTimeout() {},
@@ -63,10 +63,10 @@ test('paid status and archived expenses survive reload, with fresh status for th
   assert.equal(reloaded.history[0].members[0].name, archivedName);
   assert.equal(reloaded.expenses.length, 0);
   assert.equal(reloaded.history[0].expenses.length, 1);
-  assert.equal(reloaded.history[0].debts.find((d) => d.id === debt.id).isPaid, true);
+  assert.equal(reloaded.history[0].debts.find((d) => d.fromMemberId === debt.fromMemberId && d.isPaid).isPaid, true);
   assert.equal(Object.keys(reloaded.paidDebts).length, 0);
   state.paidDebts[debt.id].amount += 1;
-  assert.equal(storage.archiveCurrentPeriod(state, 'Changed amount').history[0].debts[0].isPaid, false);
+  assert.ok(storage.archiveCurrentPeriod(state, 'Changed amount').history[0].debts.some((d) => !d.isPaid));
 });
 
 test('history renders months newest first, archived member names, old periods and month filtering', () => {
@@ -121,6 +121,46 @@ test('cloud writes are ordered and a successful API write does not write through
   assert.equal((await second).success, true);
   assert.deepEqual(writes.map((s) => s.version), [1, 2]);
   assert.equal(sdkCalls, 0);
+});
+
+test('individual payments reset only the paid debt and new spending starts from the remaining balance', () => {
+  const { load } = fixture();
+  const storage = load('src/lib/storage.ts');
+  const { calculateDebtsByMode, calculateBalances, recordDebtPayment, getRecordedPayments } = load('src/lib/settlement-algorithm.ts');
+  const state = structuredClone(storage.INITIAL_STATE);
+  const [a, b, c, d] = state.members;
+  state.expenses = [{ id: 'meal', title: 'Meal', amount: 400, payerId: a.id,
+    beneficiaryIds: [a.id, b.id, c.id, d.id], category: 'FOOD', date: '2026-10-14' }];
+  const debtsOf = (s) => calculateDebtsByMode(s.members, s.expenses, s.settlementMode, getRecordedPayments(s));
+  const bDebt = debtsOf(state).find((debt) => debt.fromMemberId === b.id);
+  const paid = recordDebtPayment(state, bDebt);
+  assert.equal(debtsOf(paid).length, 2);
+  assert.ok(!debtsOf(paid).some((debt) => debt.fromMemberId === b.id));
+  assert.equal(debtsOf(paid).find((debt) => debt.fromMemberId === c.id).amount, 100);
+  assert.equal(recordDebtPayment(paid, bDebt), paid, 'double clicks do not record another transfer');
+  storage.saveState(paid);
+  assert.equal(debtsOf(storage.getInitialState()).length, 2);
+  const next = { ...paid, expenses: [...paid.expenses, { ...state.expenses[0], id: 'new-meal', amount: 80 }] };
+  assert.equal(debtsOf(next).find((debt) => debt.fromMemberId === b.id).amount, 20);
+  assert.equal(debtsOf(next).find((debt) => debt.fromMemberId === c.id).amount, 120);
+  assert.equal(calculateBalances(next.members, next.expenses, next.payments)[b.id].netBalance, -20);
+  assert.equal(next.expenses.reduce((sum, expense) => sum + expense.amount, 0), 480);
+  const second = recordDebtPayment(next, debtsOf(next).find((debt) => debt.fromMemberId === b.id));
+  assert.equal(second.payments.length, 2);
+  assert.ok(!debtsOf(second).some((debt) => debt.fromMemberId === b.id));
+  const optimal = { ...state, settlementMode: 'OPTIMAL' };
+  assert.equal(debtsOf(recordDebtPayment(optimal, debtsOf(optimal)[0])).length, 2);
+  const multiple = { ...state, expenses: [...state.expenses, {
+    ...state.expenses[0], id: 'other-creditor', payerId: c.id, beneficiaryIds: [b.id], amount: 60,
+  }] };
+  const onePaid = recordDebtPayment(multiple, debtsOf(multiple).find((debt) => debt.fromMemberId === b.id && debt.toMemberId === a.id));
+  assert.equal(debtsOf(onePaid).find((debt) => debt.fromMemberId === b.id).amount, 60);
+  const fractional = { ...state, expenses: [{ ...state.expenses[0], amount: 101, beneficiaryIds: [a.id, b.id] }] };
+  assert.equal(debtsOf(recordDebtPayment(fractional, debtsOf(fractional)[0])).length, 0);
+  const reversed = { ...paid, expenses: [...paid.expenses, {
+    ...state.expenses[0], id: 'reverse', payerId: b.id, beneficiaryIds: [a.id], amount: 30,
+  }] };
+  assert.equal(debtsOf(reversed).find((debt) => debt.fromMemberId === a.id && debt.toMemberId === b.id).amount, 30);
 });
 
 test('SDK database errors are reported instead of false success', async () => {
@@ -185,17 +225,17 @@ test('page persists paid toggles and archive through the common sync path; pendi
   find(render(), 'TabNavigation').onTabChange('PAYMENT');
   const debt = load('src/lib/settlement-algorithm.ts').calculateDebtsByMode(initial.members, initial.expenses, 'PAIRWISE')[0];
   find(render(), 'PaymentTab').onTogglePaid(debt); await flush();
-  assert.equal(storage.getInitialState().paidDebts[debt.id].amount, debt.amount);
-  assert.equal(writes.at(-1).paidDebts[debt.id].amount, debt.amount);
+  assert.equal(storage.getInitialState().payments[0].amount, debt.amount);
+  assert.equal(writes.at(-1).payments[0].amount, debt.amount);
   assert.equal(storage.hasPendingSync(), true);
   // Simulate reload with the same localStorage and a fresh component instance.
   hooks = []; effects = []; mounted = false;
   render(); effects.forEach((effect) => effect()); await flush();
   assert.equal(fetchCount, 1, 'pending local state is retried before fetching stale cloud state');
   find(render(), 'TabNavigation').onTabChange('PAYMENT');
-  assert.equal(find(render(), 'PaymentTab').state.paidDebts[debt.id].amount, debt.amount);
+  assert.equal(find(render(), 'PaymentTab').state.payments[0].amount, debt.amount);
   find(render(), 'PaymentTab').onTogglePaid(debt); await flush();
-  assert.equal(storage.getInitialState().paidDebts[debt.id], undefined);
+  assert.equal(storage.getInitialState().payments.length, 1);
   find(render(), 'PaymentTab').onTogglePaid(debt); await flush();
   find(render(), 'PaymentTab').onArchivePeriod('September'); await flush();
   assert.equal(writes.at(-1).expenses.length, 0);

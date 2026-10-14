@@ -1,6 +1,6 @@
 import { DEFAULT_ADMIN_USER, DEFAULT_MEMBERS } from './constants';
 import { Expense, GroupState, SettlementPeriod, UserAccount } from '@/types';
-import { calculateDebtsByMode } from './settlement-algorithm';
+import { calculateDebtsByMode, getRecordedPayments } from './settlement-algorithm';
 
 const STORAGE_KEY = 'EQUIPAY_STATE_V3';
 const AUTH_KEY = 'EQUIPAY_CURRENT_USER_V3';
@@ -104,7 +104,8 @@ export function archiveCurrentPeriod(
   const debts = calculateDebtsByMode(
     state.members,
     state.expenses,
-    state.settlementMode || 'PAIRWISE'
+    state.settlementMode || 'PAIRWISE',
+    getRecordedPayments(state)
   );
 
   const newPeriod: SettlementPeriod = {
@@ -118,12 +119,7 @@ export function archiveCurrentPeriod(
     endDate: new Date().toISOString(),
     totalAmount,
     expenses: [...state.expenses],
-    debts: debts.map((debt) => {
-      const payment = state.paidDebts?.[debt.id];
-      return payment?.amount === debt.amount
-        ? { ...debt, isPaid: true, paidAt: payment.paidAt }
-        : debt;
-    }),
+    debts: [...getRecordedPayments(state), ...debts],
     status: 'COMPLETED',
     settledAt: new Date().toISOString(),
   };
@@ -132,6 +128,7 @@ export function archiveCurrentPeriod(
     ...state,
     expenses: [],
     paidDebts: {},
+    payments: [],
     history: [newPeriod, ...state.history],
   };
 

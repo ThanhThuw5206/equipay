@@ -1,4 +1,4 @@
-import { DebtPayment, Expense, Member } from '@/types';
+import { DebtPayment, Expense, Member, RecordedPayment, GroupState } from '@/types';
 
 export interface MemberBalance {
   member: Member;
@@ -12,7 +12,8 @@ export interface MemberBalance {
  */
 export function calculateBalances(
   members: Member[],
-  expenses: Expense[]
+  expenses: Expense[],
+  payments: RecordedPayment[] = []
 ): Record<string, MemberBalance> {
   const balances: Record<string, MemberBalance> = {};
 
@@ -49,7 +50,7 @@ export function calculateBalances(
   // Tính số dư ròng (làm tròn số nguyên để tránh lẻ xu)
   for (const m of members) {
     const b = balances[m.id];
-    b.netBalance = Math.round(b.totalPaid - b.totalConsumed);
+    b.netBalance = Math.round(b.totalPaid - b.totalConsumed + payments.reduce((sum, p) => sum + (p.fromMemberId === m.id ? p.amount : 0) - (p.toMemberId === m.id ? p.amount : 0), 0));
   }
 
   return balances;
@@ -64,7 +65,8 @@ export function calculateBalances(
  */
 export function calculatePairwiseDebts(
   members: Member[],
-  expenses: Expense[]
+  expenses: Expense[],
+  payments: RecordedPayment[] = []
 ): DebtPayment[] {
   const debts: DebtPayment[] = [];
   const memberMap = new Map(members.map((m) => [m.id, m]));
@@ -110,7 +112,22 @@ export function calculatePairwiseDebts(
         }
       }
 
-      const diff = totalAPaidForB - totalBPaidForA;
+      // Round the original balance before applying whole-dong repayments.
+      // Otherwise a half-dong share can reappear as a reverse one-dong debt.
+      const originalDiff = totalAPaidForB - totalBPaidForA;
+      let paidOffset = 0;
+      for (const payment of payments) {
+        if (payment.fromMemberId === memberA.id && payment.toMemberId === memberB.id) {
+          totalAPaidForB += payment.amount;
+          paidOffset += payment.amount;
+          aPaidForB.push({ title: 'Đã thanh toán', amount: payment.amount });
+        } else if (payment.fromMemberId === memberB.id && payment.toMemberId === memberA.id) {
+          totalBPaidForA += payment.amount;
+          paidOffset -= payment.amount;
+          bPaidForA.push({ title: 'Đã thanh toán', amount: payment.amount });
+        }
+      }
+      const diff = Math.sign(originalDiff) * Math.round(Math.abs(originalDiff)) + paidOffset;
       const roundedDiff = Math.round(Math.abs(diff));
 
       // Tạo lệnh chuyển tiền nếu có chênh lệch nợ (> 0đ)
@@ -158,9 +175,10 @@ export function calculatePairwiseDebts(
  */
 export function calculateOptimalDebts(
   members: Member[],
-  expenses: Expense[]
+  expenses: Expense[],
+  payments: RecordedPayment[] = []
 ): DebtPayment[] {
-  const balances = calculateBalances(members, expenses);
+  const balances = calculateBalances(members, expenses, payments);
 
   interface PersonAmount {
     id: string;
@@ -219,12 +237,13 @@ export function calculateOptimalDebts(
 export function calculateDebtsByMode(
   members: Member[],
   expenses: Expense[],
-  mode: 'PAIRWISE' | 'OPTIMAL' = 'PAIRWISE'
+  mode: 'PAIRWISE' | 'OPTIMAL' = 'PAIRWISE',
+  payments: RecordedPayment[] = []
 ): DebtPayment[] {
   if (mode === 'OPTIMAL') {
-    return calculateOptimalDebts(members, expenses);
+    return calculateOptimalDebts(members, expenses, payments);
   }
-  return calculatePairwiseDebts(members, expenses);
+  return calculatePairwiseDebts(members, expenses, payments);
 }
 
 /**
@@ -236,4 +255,30 @@ export function formatVND(amount: number): string {
     currency: 'VND',
     maximumFractionDigits: 0,
   }).format(amount);
+}
+
+/** Preserve confirmations from the previous paid-flag format. */
+export function getRecordedPayments(state: GroupState): RecordedPayment[] {
+  const payments = [...(state.payments || [])];
+  for (const from of state.members) for (const to of state.members) {
+    if (from.id === to.id) continue;
+    const id = `debt_${from.id}_${to.id}`;
+    const paid = state.paidDebts?.[id];
+    if (paid && Number.isFinite(paid.amount) && paid.amount > 0) {
+      payments.push({ id: `legacy_${id}`, fromMemberId: from.id, toMemberId: to.id,
+        amount: paid.amount, paidAt: paid.paidAt, isPaid: true });
+    }
+  }
+  return payments;
+}
+
+export function recordDebtPayment(state: GroupState, requested: DebtPayment): GroupState {
+  const payments = getRecordedPayments(state);
+  const current = calculateDebtsByMode(state.members, state.expenses, state.settlementMode, payments)
+    .find((debt) => debt.id === requested.id);
+  // Reject repeated clicks and stale amounts.
+  if (!current || current.amount !== requested.amount) return state;
+  return { ...state, paidDebts: {}, payments: [...payments, {
+    ...current, id: `payment_${crypto.randomUUID()}`, isPaid: true, paidAt: new Date().toISOString(),
+  }] };
 }

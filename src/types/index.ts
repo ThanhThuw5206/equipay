@@ -68,6 +68,10 @@ export interface DebtPayment {
   };
 }
 
+export interface RecordedPayment extends DebtPayment {
+  paidAt: string;
+}
+
 export interface SettlementPeriod {
   members?: Member[];
   id: string;
@@ -83,6 +87,7 @@ export interface SettlementPeriod {
 }
 
 export interface GroupState {
+  payments?: RecordedPayment[];
   groupName: string;
   members: Member[];
   expenses: Expense[];

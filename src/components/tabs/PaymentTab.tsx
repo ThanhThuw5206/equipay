@@ -4,6 +4,7 @@ import React, { useState, useRef } from 'react';
 import { DebtPayment, GroupState, UserAccount } from '@/types';
 import {
   calculateDebtsByMode,
+  getRecordedPayments,
   formatVND,
 } from '@/lib/settlement-algorithm';
 import {
@@ -24,7 +25,6 @@ import {
   ArrowRight,
   Sparkles,
   CheckCircle2,
-  Circle,
   Building,
   Filter,
   X,
@@ -67,7 +67,7 @@ export const PaymentTab: React.FC<PaymentTabProps> = ({
   const reportRef = useRef<HTMLDivElement>(null);
 
   const totalAmount = state.expenses.reduce((sum, e) => sum + e.amount, 0);
-  const allDebts = calculateDebtsByMode(state.members, state.expenses, settlementMode);
+  const allDebts = calculateDebtsByMode(state.members, state.expenses, settlementMode, getRecordedPayments(state));
 
   // Các khoản tài khoản này cần trả
   const myDebtsToPay = currentMemberId
@@ -141,6 +141,7 @@ export const PaymentTab: React.FC<PaymentTabProps> = ({
 
   return (
     <div className="space-y-4 animate-fadeIn">
+      <p className="text-sm text-teal-300">Bấm “Đã trả” sau khi chuyển tiền để chốt riêng khoản đó. Khoản chi mới được tính tiếp, không cần chờ cả nhóm.</p>
       {/* Header & Controls */}
       <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-4 sm:p-5 text-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
         <div>
@@ -302,16 +303,11 @@ export const PaymentTab: React.FC<PaymentTabProps> = ({
             {filteredDebts.map((debt) => {
               const fromMember = memberMap.get(debt.fromMemberId);
               const toMember = memberMap.get(debt.toMemberId);
-              const isPaid = state.paidDebts?.[debt.id]?.amount === debt.amount;
 
               return (
                 <div
                   key={debt.id}
-                  className={`p-4 rounded-2xl border transition ${
-                    isPaid
-                      ? 'bg-emerald-950/20 border-emerald-500/30 opacity-75'
-                      : 'bg-slate-950/80 border-slate-800 hover:border-slate-700'
-                  }`}
+                  className="p-4 rounded-2xl border transition bg-slate-950/80 border-slate-800 hover:border-slate-700"
                 >
                   {/* Top: Flow & Amount */}
                   <div className="flex items-center justify-between gap-2 mb-3">
@@ -398,23 +394,10 @@ export const PaymentTab: React.FC<PaymentTabProps> = ({
                       <button
                         type="button"
                         onClick={() => onTogglePaid(debt)}
-                        className={`text-xs px-2.5 py-1.5 rounded-lg border flex items-center gap-1 transition ${
-                          isPaid
-                            ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300 font-bold'
-                            : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200'
-                        }`}
+                        className="text-xs px-2.5 py-1.5 rounded-lg border border-teal-500/40 bg-teal-500/20 text-teal-300 flex items-center gap-1 transition"
                       >
-                        {isPaid ? (
-                          <>
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>Đã trả</span>
-                          </>
-                        ) : (
-                          <>
-                            <Circle className="w-3.5 h-3.5" />
-                            <span>Chưa trả</span>
-                          </>
-                        )}
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Đã trả · Chốt khoản này</span>
                       </button>
                     </div>
                   </div>

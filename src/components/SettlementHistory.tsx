@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, CalendarDays, History, ChevronDown } from 'lucide-react';
-import { Member, SettlementPeriod } from '@/types';
+import { Member, SettlementPeriod, RecordedPayment } from '@/types';
 import { formatVND } from '@/lib/settlement-algorithm';
 
 const dateOptions = { timeZone: 'Asia/Ho_Chi_Minh' };
@@ -19,7 +19,7 @@ function monthOf(period: SettlementPeriod) {
   return `${parts.find((part) => part.type === 'month')?.value}/${parts.find((part) => part.type === 'year')?.value}`;
 }
 
-export function SettlementHistory({ history, members }: { history: SettlementPeriod[]; members: Member[] }) {
+export function SettlementHistory({ history, members, payments = [] }: { history: SettlementPeriod[]; members: Member[]; payments?: RecordedPayment[] }) {
   const [selectedMonth, setSelectedMonth] = useState('ALL');
   const sorted = [...history].sort((a, b) =>
     (Date.parse(b.settledAt || b.endDate) || 0) - (Date.parse(a.settledAt || a.endDate) || 0)
@@ -62,6 +62,19 @@ export function SettlementHistory({ history, members }: { history: SettlementPer
           <p className="mt-2 text-lg sm:text-2xl font-black text-emerald-400 break-words">{formatVND(total)}</p>
         </div>
       </div>
+
+      {payments.length > 0 && (
+        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 space-y-3">
+          <h2 className="font-bold">Các khoản đã trả trong kỳ hiện tại</h2>
+          <p className="text-xs text-slate-400">Các khoản này đã được trừ khỏi công nợ. Chi tiêu mới được tính tiếp mà không cần chờ cả nhóm chốt sổ.</p>
+          {[...payments].reverse().map((payment) => (
+            <div key={payment.id} className="flex flex-wrap justify-between gap-2 text-sm border-t border-slate-800 pt-3">
+              <span>{members.find((m) => m.id === payment.fromMemberId)?.name || 'Thành viên'} → {members.find((m) => m.id === payment.toMemberId)?.name || 'Thành viên'}</span>
+              <span className="text-emerald-400">{formatVND(payment.amount)} · {formatDate(payment.paidAt)}</span>
+            </div>
+          ))}
+        </section>
+      )}
 
       {visible.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-slate-700 p-10 text-center">
