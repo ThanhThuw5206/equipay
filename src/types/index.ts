@@ -70,6 +70,7 @@ export interface DebtPayment {
 
 export interface RecordedPayment extends DebtPayment {
   paidAt: string;
+  undoneAt?: string;
 }
 
 export interface SettlementPeriod {

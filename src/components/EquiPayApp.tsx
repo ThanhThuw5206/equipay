@@ -26,11 +26,12 @@ import { DebtsTab } from '@/components/tabs/DebtsTab';
 import { PaymentTab } from '@/components/tabs/PaymentTab';
 import { AddExpenseModal } from '@/components/AddExpenseModal';
 import { MemberSettingsModal } from '@/components/MemberSettingsModal';
+import { PaymentHistory } from '@/components/PaymentHistory';
 import { SettlementHistory } from '@/components/SettlementHistory';
 import { CloudSyncModal } from '@/components/CloudSyncModal';
 import { UserManagerModal } from '@/components/UserManagerModal';
 import { LoginScreen } from '@/components/LoginScreen';
-import { calculateDebtsByMode, getRecordedPayments, recordDebtPayment } from '@/lib/settlement-algorithm';
+import { calculateDebtsByMode, getRecordedPayments, recordDebtPayment, undoDebtPayment, formatVND } from '@/lib/settlement-algorithm';
 import { hashPassword, isPasswordHashed } from '@/lib/auth-crypto';
 
 export default function EquiPayApp({ view = 'dashboard' }: { view?: 'dashboard' | 'history' } = {}) {
@@ -278,6 +279,20 @@ export default function EquiPayApp({ view = 'dashboard' }: { view?: 'dashboard' 
     showToast('Đã ghi nhận thanh toán. Khoản chi mới sẽ được tính tiếp riêng.');
   };
 
+  const handleUndoPayment = (paymentId: string) => {
+    const payment = getRecordedPayments(stateRef.current).find((item) => item.id === paymentId);
+    if (!payment) {
+      showToast('Khoản này đã được hoàn tác hoặc đã chuyển vào kỳ chốt sổ.');
+      return;
+    }
+    const nameOf = (id: string) => stateRef.current.members.find((member) => member.id === id)?.name || 'Thành viên';
+    if (!confirm(`Hoàn tác ${nameOf(payment.fromMemberId)} đã trả ${nameOf(payment.toMemberId)} ${formatVND(payment.amount)}? Công nợ sẽ được tính lại.`)) return;
+    const next = undoDebtPayment(stateRef.current, paymentId);
+    if (next === stateRef.current) return;
+    updateState(next);
+    showToast('Đã hoàn tác thanh toán và cập nhật lại công nợ.');
+  };
+
   // Import Backup
   const handleImportState = (imported: GroupState) => {
     updateState(imported);
@@ -338,7 +353,7 @@ export default function EquiPayApp({ view = 'dashboard' }: { view?: 'dashboard' 
       {/* Main Container Full Width */}
       <main className="flex-1 w-full max-w-[1700px] mx-auto px-4 sm:px-8 lg:px-12 py-5 sm:py-7 space-y-6">
         {view === 'history' ? (
-          <SettlementHistory history={state.history} members={state.members} payments={payments} />
+          <SettlementHistory history={state.history} members={state.members} payments={getRecordedPayments(state, true)} onUndoPayment={handleUndoPayment} />
         ) : (
           <>
             {/* 5 Tab Navigation Bar */}
@@ -349,6 +364,9 @@ export default function EquiPayApp({ view = 'dashboard' }: { view?: 'dashboard' 
               debtCount={debts.length}
             />
 
+            {(activeTab === 'DEBTS' || activeTab === 'PAYMENT') && (
+              <PaymentHistory payments={getRecordedPayments(state, true)} members={state.members} onUndoPayment={handleUndoPayment} />
+            )}
             {/* Tab Content Display */}
             {activeTab === 'HOME' && (
               <HomeTab

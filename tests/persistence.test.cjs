@@ -176,7 +176,7 @@ test('SDK database errors are reported instead of false success', async () => {
   assert.equal(result.error, 'Write denied');
 });
 
-test('page persists paid toggles and archive through the common sync path; pending changes survive remount', async () => {
+test('page persists payments, undo and archive through the common sync path; pending changes survive remount', async () => {
   let hooks = [], index = 0, effects = [], mounted = false;
   const react = {
     useCallback(callback) { return callback; },
@@ -195,7 +195,8 @@ test('page persists paid toggles and archive through the common sync path; pendi
   const writes = [];
   let fetchCount = 0;
   let online = false;
-  const { load } = fixture({ modules: {
+  let allowUndo = false;
+  const { load } = fixture({ globals: { confirm: () => allowUndo }, modules: {
     react,
     'react/jsx-runtime': { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }) },
     '@/lib/auth-crypto': { isPasswordHashed: () => true },
@@ -236,7 +237,19 @@ test('page persists paid toggles and archive through the common sync path; pendi
   assert.equal(find(render(), 'PaymentTab').state.payments[0].amount, debt.amount);
   find(render(), 'PaymentTab').onTogglePaid(debt); await flush();
   assert.equal(storage.getInitialState().payments.length, 1);
+  const paymentId = storage.getInitialState().payments[0].id;
+  find(render(), 'PaymentHistory').onUndoPayment(paymentId); await flush();
+  assert.equal(storage.getInitialState().payments[0].undoneAt, undefined, 'cancel keeps the payment');
+  allowUndo = true;
+  find(render(), 'PaymentHistory').onUndoPayment(paymentId); await flush();
+  assert.ok(storage.getInitialState().payments[0].undoneAt);
+  assert.ok(writes.at(-1).payments[0].undoneAt, 'undo is sent to cloud');
+  const algorithm = load('src/lib/settlement-algorithm.ts');
+  assert.equal(algorithm.getRecordedPayments(storage.getInitialState()).length, 0);
+  find(render(), 'PaymentHistory').onUndoPayment(paymentId); await flush();
+  assert.equal(storage.getInitialState().payments.length, 1, 'repeated undo is harmless');
   find(render(), 'PaymentTab').onTogglePaid(debt); await flush();
+  assert.equal(storage.getInitialState().payments.length, 2, 'paying again preserves the undo record');
   find(render(), 'PaymentTab').onArchivePeriod('September'); await flush();
   assert.equal(writes.at(-1).expenses.length, 0);
   assert.equal(writes.at(-1).history.length, 1);
@@ -247,4 +260,60 @@ test('page persists paid toggles and archive through the common sync path; pendi
   assert.equal(writes.at(-1).expenses.length, 0);
   assert.equal(storage.hasPendingSync(), false, 'successful retry clears pending changes');
   assert.equal(fetchCount, 1);
+});
+
+
+test('undo restores only the selected payment after new expenses and preserves other members', () => {
+  const { load } = fixture();
+  const storage = load('src/lib/storage.ts');
+  const { calculateDebtsByMode, getRecordedPayments, recordDebtPayment, undoDebtPayment } = load('src/lib/settlement-algorithm.ts');
+  for (const mode of ['PAIRWISE', 'OPTIMAL']) {
+    let state = structuredClone(storage.INITIAL_STATE);
+    state.settlementMode = mode;
+    const [a, b, c] = state.members;
+    const expense = { id: 'meal', title: 'Meal', amount: 400, payerId: a.id,
+      beneficiaryIds: state.members.map((m) => m.id), category: 'FOOD', date: '2026-10-14' };
+    state.expenses = [expense];
+    const debts = (s) => calculateDebtsByMode(s.members, s.expenses, s.settlementMode, getRecordedPayments(s));
+    state = recordDebtPayment(state, debts(state).find((d) => d.fromMemberId === b.id));
+    const firstId = state.payments[0].id;
+    state = recordDebtPayment(state, debts(state).find((d) => d.fromMemberId === c.id));
+    state = { ...state, expenses: [...state.expenses, { ...expense, id: 'later', amount: 80 }] };
+    state = undoDebtPayment(state, firstId);
+    assert.equal(debts(state).find((d) => d.fromMemberId === b.id).amount, 120);
+    assert.equal(debts(state).find((d) => d.fromMemberId === c.id).amount, 20);
+    assert.equal(state.expenses.length, 2);
+    assert.equal(getRecordedPayments(state).length, 1);
+    assert.equal(undoDebtPayment(state, firstId), state);
+    assert.equal(undoDebtPayment(state, 'missing'), state);
+    storage.saveState(state);
+    assert.equal(debts(storage.getInitialState()).find((d) => d.fromMemberId === b.id).amount, 120);
+  }
+  const legacy = structuredClone(storage.INITIAL_STATE);
+  const [a, b] = legacy.members;
+  legacy.paidDebts = { [`debt_${b.id}_${a.id}`]: { amount: 100, paidAt: '2026-10-14' } };
+  const undone = undoDebtPayment(legacy, getRecordedPayments(legacy)[0].id);
+  assert.equal(getRecordedPayments(undone).length, 0);
+  assert.equal(Object.keys(undone.paidDebts).length, 0);
+  assert.ok(undone.payments[0].undoneAt);
+});
+
+test('payment history renders review, undo actions, timestamps and undone records', () => {
+  const { load } = fixture();
+  const React = require('react');
+  const { renderToStaticMarkup } = require('react-dom/server');
+  const PaymentHistory = load('src/components/PaymentHistory.tsx').PaymentHistory;
+  const members = [{ id: 'a', name: 'An' }, { id: 'b', name: 'Binh' }];
+  const payments = [{ id: 'one', fromMemberId: 'a', toMemberId: 'b', amount: 100,
+    paidAt: '2026-10-14T10:00:00Z', isPaid: true },
+    { id: 'two', fromMemberId: 'a', toMemberId: 'b', amount: 20,
+      paidAt: '2026-10-14T11:00:00Z', undoneAt: '2026-10-14T12:00:00Z', isPaid: true }];
+  const html = renderToStaticMarkup(React.createElement(PaymentHistory, { members, payments, onUndoPayment() {} }));
+  assert.equal((html.match(/<button/g) || []).length, 1);
+  assert.ok(html.includes('Đã hoàn tác'));
+  assert.ok(html.includes('14/10/2026'));
+  assert.ok(html.includes('An'));
+  assert.ok(html.includes('Binh'));
+  const empty = renderToStaticMarkup(React.createElement(PaymentHistory, { members, payments: [] }));
+  assert.ok(empty.includes('Chưa có khoản nào'));
 });

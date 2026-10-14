@@ -258,7 +258,7 @@ export function formatVND(amount: number): string {
 }
 
 /** Preserve confirmations from the previous paid-flag format. */
-export function getRecordedPayments(state: GroupState): RecordedPayment[] {
+export function getRecordedPayments(state: GroupState, includeUndone = false): RecordedPayment[] {
   const payments = [...(state.payments || [])];
   for (const from of state.members) for (const to of state.members) {
     if (from.id === to.id) continue;
@@ -269,7 +269,7 @@ export function getRecordedPayments(state: GroupState): RecordedPayment[] {
         amount: paid.amount, paidAt: paid.paidAt, isPaid: true });
     }
   }
-  return payments;
+  return includeUndone ? payments : payments.filter((payment) => !payment.undoneAt);
 }
 
 export function recordDebtPayment(state: GroupState, requested: DebtPayment): GroupState {
@@ -278,7 +278,20 @@ export function recordDebtPayment(state: GroupState, requested: DebtPayment): Gr
     .find((debt) => debt.id === requested.id);
   // Reject repeated clicks and stale amounts.
   if (!current || current.amount !== requested.amount) return state;
-  return { ...state, paidDebts: {}, payments: [...payments, {
+  return { ...state, paidDebts: {}, payments: [...getRecordedPayments(state, true), {
     ...current, id: `payment_${crypto.randomUUID()}`, isPaid: true, paidAt: new Date().toISOString(),
   }] };
+}
+
+/** Undo one confirmation without replacing newer expenses or other payments. */
+export function undoDebtPayment(state: GroupState, paymentId: string): GroupState {
+  const payments = getRecordedPayments(state, true);
+  if (!payments.some((payment) => payment.id === paymentId && !payment.undoneAt)) return state;
+  return {
+    ...state,
+    paidDebts: {},
+    payments: payments.map((payment) => payment.id === paymentId
+      ? { ...payment, undoneAt: new Date().toISOString() }
+      : payment),
+  };
 }

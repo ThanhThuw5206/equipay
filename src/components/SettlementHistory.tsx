@@ -1,5 +1,6 @@
 'use client';
 
+import { PaymentHistory } from '@/components/PaymentHistory';
 import { useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, CalendarDays, History, ChevronDown } from 'lucide-react';
@@ -19,7 +20,7 @@ function monthOf(period: SettlementPeriod) {
   return `${parts.find((part) => part.type === 'month')?.value}/${parts.find((part) => part.type === 'year')?.value}`;
 }
 
-export function SettlementHistory({ history, members, payments = [] }: { history: SettlementPeriod[]; members: Member[]; payments?: RecordedPayment[] }) {
+export function SettlementHistory({ history, members, payments = [], onUndoPayment }: { history: SettlementPeriod[]; members: Member[]; payments?: RecordedPayment[]; onUndoPayment?: (id: string) => void }) {
   const [selectedMonth, setSelectedMonth] = useState('ALL');
   const sorted = [...history].sort((a, b) =>
     (Date.parse(b.settledAt || b.endDate) || 0) - (Date.parse(a.settledAt || a.endDate) || 0)
@@ -63,18 +64,8 @@ export function SettlementHistory({ history, members, payments = [] }: { history
         </div>
       </div>
 
-      {payments.length > 0 && (
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 space-y-3">
-          <h2 className="font-bold">Các khoản đã trả trong kỳ hiện tại</h2>
-          <p className="text-xs text-slate-400">Các khoản này đã được trừ khỏi công nợ. Chi tiêu mới được tính tiếp mà không cần chờ cả nhóm chốt sổ.</p>
-          {[...payments].reverse().map((payment) => (
-            <div key={payment.id} className="flex flex-wrap justify-between gap-2 text-sm border-t border-slate-800 pt-3">
-              <span>{members.find((m) => m.id === payment.fromMemberId)?.name || 'Thành viên'} → {members.find((m) => m.id === payment.toMemberId)?.name || 'Thành viên'}</span>
-              <span className="text-emerald-400">{formatVND(payment.amount)} · {formatDate(payment.paidAt)}</span>
-            </div>
-          ))}
-        </section>
-      )}
+      <PaymentHistory payments={payments} members={members} onUndoPayment={onUndoPayment} />
+      <p className="text-xs text-slate-500">Các kỳ đã chốt bên dưới chỉ dùng để xem lại. Hoàn tác đã trả áp dụng cho kỳ hiện tại.</p>
 
       {visible.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-slate-700 p-10 text-center">
